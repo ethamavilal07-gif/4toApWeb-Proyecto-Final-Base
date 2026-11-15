@@ -1,11 +1,7 @@
 <?php
 /**
- * MÓDULO PLANTILLA · Pantalla pública
- * Explorador Vocacional UTBB
- *
- * Pantalla de listado: búsqueda, filtro, rejilla de tarjetas, estado vacío
- * y paginación. Es el esqueleto de casi todas las pantallas públicas de los
- * diez módulos.
+ * CAR · Índice público de carreras
+ * Filtros: búsqueda, área, modalidad y duración.
  */
 
 declare(strict_types=1);
@@ -13,22 +9,27 @@ declare(strict_types=1);
 require_once __DIR__ . '/../../nucleo/comun.php';
 require_once __DIR__ . '/includes/consultas.php';
 
-// --- Entrada ---------------------------------------------------------------
+// --- Entrada: todo lo que llega por la dirección se trata como no confiable ---
 $busqueda  = get('q');
-$carreraId = entero(get('carrera'));
+$area      = get('area');
+$modalidad = get('modalidad');
+$duracion  = get('duracion');
 $pagina    = entero(get('pagina')) ?? 1;
 
-// Al público solo se le muestra lo publicado. El estado NO se toma de la
-// dirección: lo fija el servidor.
-$resultado = plt_listar($busqueda, 'publicado', $carreraId, $pagina);
+$resultado = car_listar_publicas($busqueda, $area, $modalidad, $duracion, $pagina);
 
-cabecera('Módulo plantilla', '', 'css/modulo.css');
+$hayFiltros = ($busqueda !== '' || $area !== '' || $modalidad !== '' || $duracion !== '');
+
+cabecera('Carreras', '', 'css/modulo.css');
 ?>
 
 <section class="portada">
   <div class="contenedor">
-    <h1>Módulo plantilla</h1>
-    <p class="entradilla">Sustituye este texto por la descripción de tu módulo.</p>
+    <h1>Encuentra tu carrera</h1>
+    <p class="entradilla">
+      Conoce el plan de estudios, el perfil de egreso, las instalaciones y el
+      campo laboral de cada carrera de la universidad.
+    </p>
   </div>
 </section>
 
@@ -45,23 +46,47 @@ cabecera('Módulo plantilla', '', 'css/modulo.css');
       <div class="campo">
         <label class="campo__etiqueta" for="q">Buscar</label>
         <input class="campo__control" type="search" id="q" name="q"
-               value="<?= e($busqueda) ?>" placeholder="Palabra clave">
+              value="<?= e($busqueda) ?>" placeholder="Nombre o palabra clave">
       </div>
 
       <div class="campo">
-        <label class="campo__etiqueta" for="carrera">Carrera</label>
-        <select class="campo__control" id="carrera" name="carrera">
+        <label class="campo__etiqueta" for="area">Área</label>
+        <select class="campo__control" id="area" name="area">
           <option value="">Todas</option>
-          <?php foreach (carreras() as $c): ?>
-            <option value="<?= (int)$c['id'] ?>" <?= $carreraId === (int)$c['id'] ? 'selected' : '' ?>>
-              <?= e($c['nombre']) ?>
+          <?php foreach (CAR_AREAS as $clave => $texto): ?>
+            <option value="<?= e($clave) ?>" <?= $area === $clave ? 'selected' : '' ?>>
+              <?= e($texto) ?>
+            </option>
+          <?php endforeach; ?>
+        </select>
+      </div>
+
+      <div class="campo">
+        <label class="campo__etiqueta" for="modalidad">Modalidad</label>
+        <select class="campo__control" id="modalidad" name="modalidad">
+          <option value="">Todas</option>
+          <?php foreach (car_modalidades() as $m): ?>
+            <option value="<?= e($m) ?>" <?= $modalidad === $m ? 'selected' : '' ?>>
+              <?= e($m) ?>
+            </option>
+          <?php endforeach; ?>
+        </select>
+      </div>
+
+      <div class="campo">
+        <label class="campo__etiqueta" for="duracion">Duración</label>
+        <select class="campo__control" id="duracion" name="duracion">
+          <option value="">Todas</option>
+          <?php foreach (car_duraciones() as $d): ?>
+            <option value="<?= e($d) ?>" <?= $duracion === $d ? 'selected' : '' ?>>
+              <?= e($d) ?>
             </option>
           <?php endforeach; ?>
         </select>
       </div>
 
       <button class="boton boton--primario boton--bloque" type="submit">Aplicar</button>
-      <?php if ($busqueda !== '' || $carreraId !== null): ?>
+      <?php if ($hayFiltros): ?>
         <p class="centrado mt-4 sin-margen"><a href="?">Quitar filtros</a></p>
       <?php endif; ?>
     </form>
@@ -69,14 +94,14 @@ cabecera('Módulo plantilla', '', 'css/modulo.css');
     <!-- Resultados -->
     <div>
       <p class="leyenda">
-        <?= $resultado['total'] ?> resultado<?= $resultado['total'] === 1 ? '' : 's' ?>
+        <?= (int)$resultado['total'] ?> carrera<?= $resultado['total'] === 1 ? '' : 's' ?>
       </p>
 
       <?php if (!$resultado['filas']): ?>
 
         <div class="vacio">
-          <h3>No hay resultados con esos filtros</h3>
-          <p class="ancho-lectura">Prueba con otra palabra o quita los filtros para ver todo el contenido publicado.</p>
+          <h3>No hay carreras con esos filtros</h3>
+          <p class="ancho-lectura">Prueba con otra palabra o quita los filtros.</p>
           <a class="boton boton--secundario" href="?">Quitar filtros</a>
         </div>
 
@@ -84,28 +109,36 @@ cabecera('Módulo plantilla', '', 'css/modulo.css');
 
         <div class="rejilla">
           <?php foreach ($resultado['filas'] as $f): ?>
-            <a class="tarjeta tarjeta--area <?= e(clase_area($f['area'])) ?>"
-               href="ficha.php?id=<?= (int)$f['id'] ?>">
+            <?php $publicada = $f['ficha_id'] !== null; ?>
 
-              <?php if ($f['imagen']): ?>
+            <<?= $publicada ? 'a' : 'div' ?> class="tarjeta tarjeta--area <?= e(clase_area($f['area'])) ?>"
+              <?= $publicada ? 'href="ficha.php?id=' . (int)$f['id'] . '"' : '' ?>>
+
+              <?php if ($publicada && $f['imagen_portada']): ?>
                 <img class="tarjeta__medio"
-                     src="uploads/<?= e($f['imagen']) ?>"
-                     alt="Imagen de <?= e($f['titulo']) ?>">
+                    src="uploads/<?= e($f['imagen_portada']) ?>"
+                    alt="Portada de <?= e($f['nombre']) ?>">
               <?php endif; ?>
 
               <div class="tarjeta__cuerpo">
-                <h3 class="tarjeta__titulo"><?= e($f['titulo']) ?></h3>
-                <p class="leyenda"><?= e($f['carrera']) ?></p>
-                <p><?= e($f['resumen']) ?></p>
+                <h3 class="tarjeta__titulo"><?= e($f['nombre']) ?></h3>
+                <p class="leyenda">
+                  <?= e(CAR_AREAS[$f['area']] ?? $f['area']) ?> ·
+                  <?= e($f['modalidad']) ?> · <?= e($f['duracion']) ?>
+                </p>
+                <p>
+                  <?= $publicada
+                      ? e($f['resumen'])
+                      : 'La ficha de esta carrera estará disponible próximamente.' ?>
+                </p>
               </div>
 
               <div class="tarjeta__pie">
-                <span class="<?= e(plt_clase_estado($f['estado'])) ?>">
-                  <?= e(PLT_ESTADOS[$f['estado']]) ?>
-                </span>
-                <span>Ver detalle</span>
+                <span><?= e($f['clave']) ?></span>
+                <span><?= $publicada ? 'Ver ficha' : 'Próximamente' ?></span>
               </div>
-            </a>
+            </<?= $publicada ? 'a' : 'div' ?>>
+
           <?php endforeach; ?>
         </div>
 
@@ -115,8 +148,10 @@ cabecera('Módulo plantilla', '', 'css/modulo.css');
               <?php
               // Se conservan los filtros al cambiar de página.
               $base = http_build_query(array_filter([
-                  'q'       => $busqueda,
-                  'carrera' => $carreraId,
+                  'q'         => $busqueda,
+                  'area'      => $area,
+                  'modalidad' => $modalidad,
+                  'duracion'  => $duracion,
               ]));
               for ($p = 1; $p <= $resultado['paginas']; $p++):
               ?>
@@ -124,7 +159,7 @@ cabecera('Módulo plantilla', '', 'css/modulo.css');
                   <?php if ($p === $resultado['pagina']): ?>
                     <span aria-current="page"><?= $p ?></span>
                   <?php else: ?>
-                    <a href="?<?= $base ? $base . '&amp;' : '' ?>pagina=<?= $p ?>"><?= $p ?></a>
+                    <a href="?<?= e($base) ?><?= $base ? '&amp;' : '' ?>pagina=<?= $p ?>"><?= $p ?></a>
                   <?php endif; ?>
                 </li>
               <?php endfor; ?>
