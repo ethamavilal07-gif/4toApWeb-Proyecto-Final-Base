@@ -81,6 +81,7 @@ cabecera('Panel · Carreras', $carrera['area'] ?? '', '../css/modulo.css');
           <form method="POST" action="cambiar_estado.php"
                 data-confirmar="¿Enviar la ficha a revisión? Ya no podrás editarla hasta que la coordinación responda."
                 data-confirmar-boton="Enviar a revisión">
+            <?= campo_token() ?>
             <input type="hidden" name="ficha" value="<?= (int)$ficha['id'] ?>">
             <input type="hidden" name="nuevo" value="revision">
             <button class="boton boton--primario" type="submit">Enviar a revisión</button>
@@ -98,5 +99,6 @@ cabecera('Panel · Carreras', $carrera['area'] ?? '', '../css/modulo.css');
 
 </section>
 <script src="../js/confirmar.js"></script>
+<script src="../js/validar.js"></script>
 <?php
 pie();

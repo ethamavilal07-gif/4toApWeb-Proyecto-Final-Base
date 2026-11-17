@@ -42,4 +42,4 @@ if ($archivo !== null) {
 }
 
 mensaje('exito', 'Documento eliminado.');
-redirigir($destino)
+redirigir($destino);

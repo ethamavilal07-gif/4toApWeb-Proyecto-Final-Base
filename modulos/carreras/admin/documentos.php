@@ -143,6 +143,7 @@ cabecera('Documentos', $ficha['area'], '../css/modulo.css');
                 <form method="POST" action="documento_eliminar.php"
                         data-confirmar="¿Eliminar este documento? No se puede deshacer."
                         data-confirmar-boton="Eliminar" data-confirmar-tipo="peligro">
+                <?= campo_token() ?>
                 <input type="hidden" name="id" value="<?= (int)$d['id'] ?>">
                 <button class="boton boton--peligro boton--pequeno" type="submit">Eliminar</button>
                 </form>
@@ -158,5 +159,6 @@ cabecera('Documentos', $ficha['area'], '../css/modulo.css');
 
 </section>
 <script src="../js/confirmar.js"></script>
+<script src="../js/validar.js"></script>
 <?php
 pie();

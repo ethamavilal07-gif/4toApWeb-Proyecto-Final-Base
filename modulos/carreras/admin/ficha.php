@@ -186,5 +186,6 @@ cabecera('Editar ficha', $carrera['area'] ?? '', '../css/modulo.css');
 
 </section>
 
+<script src="../js/validar.js"></script>
 <?php
 pie();
