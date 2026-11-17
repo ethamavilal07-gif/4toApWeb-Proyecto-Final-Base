@@ -71,3 +71,8 @@
     justify-content: flex-end;
     gap: 0.75rem;
 }
+
+/* Formularios del panel: usan todo el ancho del contenedor */
+.formulario { max-width: none; }
+.formulario .campo__control { width: 100%; }
+.formulario textarea.campo__control { min-height: 9rem; }
