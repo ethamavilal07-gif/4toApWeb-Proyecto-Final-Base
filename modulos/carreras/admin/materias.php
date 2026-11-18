@@ -5,12 +5,12 @@
 
 declare(strict_types=1);
 
-require_once _DIR_ . '/../../../nucleo/comun.php';
+require_once __DIR__ . '/../../../nucleo/comun.php';
 
 requerir_rol('editor', 'coordinacion');
 
-require_once _DIR_ . '/../includes/consultas.php';
-require_once _DIR_ . '/../includes/panel.php';
+require_once __DIR__ . '/../includes/consultas.php';
+require_once __DIR__ . '/../includes/panel.php';
 
 $fichaId = entero(get('ficha'));
 if ($fichaId === null) {
@@ -236,6 +236,7 @@ cabecera('Materias', $ficha['area'], '../css/modulo.css');
                 <form method="POST" action="materia_eliminar.php"
                         data-confirmar="¿Eliminar esta materia? No se puede deshacer."
                         data-confirmar-boton="Eliminar" data-confirmar-tipo="peligro">
+                <?= campo_token() ?>
                 <input type="hidden" name="id" value="<?= (int)$m['id'] ?>">
                 <button class="boton boton--peligro boton--pequeno" type="submit">Eliminar</button>
                 </form>
