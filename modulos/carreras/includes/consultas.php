@@ -336,30 +336,99 @@ function car_materia_obtener(int $id): ?array
     return $con->fetch() ?: null;
 }
 
-function car_materia_crear(int $fichaId, array $d): int
+/** Unidades de una materia, en orden. */
+function car_unidades_de_materia(int $materiaId): array
 {
-    $con = bd()->prepare(
-        'INSERT INTO car_materias (ficha_id, cuatrimestre, clave_materia, nombre, horas_totales, descripcion, orden)
-        VALUES (?, ?, ?, ?, ?, ?, ?)'
-    );
-    $con->execute([
-        $fichaId, $d['cuatrimestre'], $d['clave_materia'], $d['nombre'],
-        $d['horas_totales'], $d['descripcion'], $d['orden'],
-    ]);
-    return (int)bd()->lastInsertId();
+    $con = bd()->prepare('SELECT * FROM car_unidades WHERE materia_id = ? ORDER BY numero');
+    $con->execute([$materiaId]);
+    return $con->fetchAll();
 }
 
-function car_materia_actualizar(int $id, array $d): void
+/** Unidades de varias materias de una vez: [materia_id => [unidades]]. */
+function car_unidades_de_ficha(int $fichaId): array
 {
     $con = bd()->prepare(
-        'UPDATE car_materias
-            SET cuatrimestre = ?, clave_materia = ?, nombre = ?, horas_totales = ?, descripcion = ?, orden = ?
-        WHERE id = ?'
+        'SELECT u.* FROM car_unidades u
+        JOIN car_materias m ON m.id = u.materia_id
+        WHERE m.ficha_id = ?
+        ORDER BY u.materia_id, u.numero'
     );
-    $con->execute([
-        $d['cuatrimestre'], $d['clave_materia'], $d['nombre'],
-        $d['horas_totales'], $d['descripcion'], $d['orden'], $id,
-    ]);
+    $con->execute([$fichaId]);
+    $porMateria = [];
+    foreach ($con->fetchAll() as $u) {
+        $porMateria[(int)$u['materia_id']][] = $u;
+    }
+    return $porMateria;
+}
+
+/** Reemplaza las unidades de una materia por las recibidas (misma transacción que el llamador). */
+function car_unidades_guardar(int $materiaId, array $unidades): void
+{
+    $borrar = bd()->prepare('DELETE FROM car_unidades WHERE materia_id = ?');
+    $borrar->execute([$materiaId]);
+
+    $ins = bd()->prepare(
+        'INSERT INTO car_unidades (materia_id, numero, nombre, horas_saber, horas_saber_hacer, horas_totales)
+        VALUES (?, ?, ?, ?, ?, ?)'
+    );
+    foreach ($unidades as $u) {
+        $ins->execute([
+            $materiaId, $u['numero'], $u['nombre'],
+            $u['horas_saber'], $u['horas_saber_hacer'], $u['horas_totales'],
+        ]);
+    }
+}
+
+/** Crea la materia y sus unidades en una sola transacción. */
+function car_materia_crear(int $fichaId, array $d, array $unidades = []): int
+{
+    $pdo = bd();
+    $pdo->beginTransaction();
+    try {
+        $con = $pdo->prepare(
+            'INSERT INTO car_materias
+                (ficha_id, cuatrimestre, clave_materia, nombre, horas_totales, horas_semana,
+                proposito, competencia, num_unidades, orden)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        );
+        $con->execute([
+            $fichaId, $d['cuatrimestre'], $d['clave_materia'], $d['nombre'],
+            $d['horas_totales'], $d['horas_semana'], $d['proposito'], $d['competencia'],
+            $d['num_unidades'], $d['orden'],
+        ]);
+        $id = (int)$pdo->lastInsertId();
+        car_unidades_guardar($id, $unidades);
+        $pdo->commit();
+        return $id;
+    } catch (Throwable $e) {
+        $pdo->rollBack();
+        throw $e;
+    }
+}
+
+/** Actualiza la materia y reemplaza sus unidades en una sola transacción. */
+function car_materia_actualizar(int $id, array $d, array $unidades = []): void
+{
+    $pdo = bd();
+    $pdo->beginTransaction();
+    try {
+        $con = $pdo->prepare(
+            'UPDATE car_materias
+                SET cuatrimestre = ?, clave_materia = ?, nombre = ?, horas_totales = ?, horas_semana = ?,
+                    proposito = ?, competencia = ?, num_unidades = ?, orden = ?
+            WHERE id = ?'
+        );
+        $con->execute([
+            $d['cuatrimestre'], $d['clave_materia'], $d['nombre'],
+            $d['horas_totales'], $d['horas_semana'], $d['proposito'], $d['competencia'],
+            $d['num_unidades'], $d['orden'], $id,
+        ]);
+        car_unidades_guardar($id, $unidades);
+        $pdo->commit();
+    } catch (Throwable $e) {
+        $pdo->rollBack();
+        throw $e;
+    }
 }
 
 function car_materia_eliminar(int $id): void
