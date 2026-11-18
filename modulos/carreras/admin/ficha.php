@@ -50,8 +50,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     /* --- Validación en el servidor --- */
     if ($datos['resumen'] === '') {
         $errores['resumen'] = 'El resumen es obligatorio.';
-    } elseif (mb_strlen($datos['resumen']) > 600) {
-        $errores['resumen'] = 'El resumen no puede pasar de 600 caracteres.';
+    } elseif (mb_strlen($datos['resumen']) > 2000) {
+        $errores['resumen'] = 'El resumen no puede pasar de 2000 caracteres.';
     }
 
     if ($datos['perfil_egreso'] === '') {
@@ -77,6 +77,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     /* --- Portada (opcional). Solo se guarda si lo demás es válido --- */
     $nuevaPortada = null;
+    $quitarPortada = !empty($_POST['quitar_portada']);
     if (!$errores && !empty($_FILES['portada']['name'])) {
         try {
             $nuevaPortada = guardar_archivo($_FILES['portada'], CARPETA_SUBIDAS, SOLO_IMAGEN, 2);
@@ -97,6 +98,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!empty($ficha['imagen_portada'])) {
                 @unlink(CARPETA_SUBIDAS . '/' . $ficha['imagen_portada']);
             }
+        } elseif ($quitarPortada && !empty($ficha['imagen_portada'])) {
+            car_guardar_portada($fichaId, null);
+            @unlink(CARPETA_SUBIDAS . '/' . $ficha['imagen_portada']);
         }
 
         mensaje('exito', 'Ficha guardada.');
@@ -139,8 +143,8 @@ cabecera('Editar ficha', $carrera['area'] ?? '', '../css/modulo.css');
     <div class="campo <?= isset($errores['resumen']) ? 'campo--invalido' : '' ?>">
         <label class="campo__etiqueta" for="resumen">Resumen *</label>
         <textarea class="campo__control" id="resumen" name="resumen" rows="3"
-                maxlength="600" required><?= e($datos['resumen']) ?></textarea>
-        <small class="campo__ayuda">Se muestra en la tarjeta del índice. Máximo 600 caracteres.</small>
+                maxlength="2000" required><?= e($datos['resumen']) ?></textarea>
+        <small class="campo__ayuda">Se muestra en la tarjeta del índice. Máximo 2000 caracteres.</small>
         <?php if (isset($errores['resumen'])): ?><small class="campo__error"><?= e($errores['resumen']) ?></small><?php endif; ?>
     </div>
 
@@ -170,6 +174,14 @@ cabecera('Editar ficha', $carrera['area'] ?? '', '../css/modulo.css');
         <?php if (!empty($ficha['imagen_portada'])): ?>
         <img src="../uploads/<?= e($ficha['imagen_portada']) ?>" alt="Portada actual"
             style="max-width:260px;border-radius:6px;margin-bottom:8px">
+        <?php endif; ?>
+        <?php if (!empty($ficha['imagen_portada'])): ?>
+        <div class="fila" style="margin-bottom: var(--e3);">
+            <button class="boton boton--peligro boton--pequeno" type="submit"
+                    name="quitar_portada" value="1">
+                Borrar imagen actual
+            </button>
+        </div>
         <?php endif; ?>
         <input class="campo__control" type="file" id="portada" name="portada"
             accept="image/jpeg,image/png,image/webp">
