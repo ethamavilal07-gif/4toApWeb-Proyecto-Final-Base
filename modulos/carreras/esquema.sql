@@ -46,13 +46,35 @@ CREATE TABLE IF NOT EXISTS car_materias (
     clave_materia VARCHAR(20) NULL,
     nombre        VARCHAR(150) NOT NULL,
     horas_totales SMALLINT UNSIGNED NULL,
-    descripcion   TEXT NULL,
+    horas_semana  TINYINT UNSIGNED NULL,
+    proposito     TEXT NULL,                   -- propósito de aprendizaje de la asignatura
+    competencia   TEXT NULL,                   -- competencia a la que contribuye
+    num_unidades  TINYINT UNSIGNED NOT NULL DEFAULT 0,  -- de 1 a 5
     orden         TINYINT UNSIGNED NOT NULL DEFAULT 1,
 
     KEY ix_car_materias_ficha_cuatri (ficha_id, cuatrimestre),
 
     CONSTRAINT fk_car_materias_ficha
         FOREIGN KEY (ficha_id) REFERENCES car_fichas(id)
+        ON UPDATE CASCADE ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- -----------------------------------------------------------------------------
+-- car_unidades · unidades de cada materia (de 1 a 5)
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS car_unidades (
+    id               INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    materia_id       INT UNSIGNED NOT NULL,
+    numero           TINYINT UNSIGNED NOT NULL,
+    nombre           VARCHAR(150) NOT NULL,
+    horas_saber      SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+    horas_saber_hacer SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+    horas_totales    SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+
+    UNIQUE KEY uq_car_unidades_materia_numero (materia_id, numero),
+
+    CONSTRAINT fk_car_unidades_materia
+        FOREIGN KEY (materia_id) REFERENCES car_materias(id)
         ON UPDATE CASCADE ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -158,7 +180,7 @@ SELECT c.id,
     FROM carreras c WHERE c.clave = 'GAS';
 
 -- Materias de TIC
-INSERT INTO car_materias (ficha_id, cuatrimestre, clave_materia, nombre, horas_totales, descripcion, orden)
+INSERT INTO car_materias (ficha_id, cuatrimestre, clave_materia, nombre, horas_totales, proposito, orden)
 SELECT f.id, m.cuatri, m.clave, m.nombre, m.horas, m.descr, m.orden
     FROM car_fichas f
     JOIN carreras c ON c.id = f.carrera_id AND c.clave = 'TIC'
