@@ -1,4 +1,3 @@
-
 <?php
 /**
  * CAR · Instalaciones de una ficha (alta, consulta, modificación)
@@ -6,14 +5,14 @@
 
 declare(strict_types=1);
 
-require_once _DIR_ . '/../../../nucleo/comun.php';
+require_once __DIR__ . '/../../../nucleo/comun.php';
 
 requerir_rol('editor', 'coordinacion');
 
-require_once _DIR_ . '/../includes/consultas.php';
-require_once _DIR_ . '/../includes/panel.php';
+require_once __DIR__ . '/../includes/consultas.php';
+require_once __DIR__ . '/../includes/panel.php';
 
-const CARPETA_SUBIDAS = _DIR_ . '/../uploads';
+const CARPETA_SUBIDAS = __DIR__ . '/../uploads';
 
 $fichaId = entero(get('ficha'));
 if ($fichaId === null) {
@@ -125,111 +124,110 @@ cabecera('Instalaciones', $ficha['area'], '../css/modulo.css');
 
 <section class="contenedor seccion">
 
-<nav aria-label="Ruta">
+  <nav aria-label="Ruta">
     <ol class="migas">
-    <li><a href="<?= RUTA_BASE ?>/panel.php">Panel</a></li>
-    <li><a href="<?= e(car_url_inicio()) ?>">Carreras</a></li>
-    <li>Instalaciones</li>
+      <li><a href="<?= RUTA_BASE ?>/panel.php">Panel</a></li>
+      <li><a href="<?= e(car_url_inicio()) ?>">Carreras</a></li>
+      <li>Instalaciones</li>
     </ol>
-</nav>
+  </nav>
 
-<h1>Instalaciones de <?= e($ficha['nombre']) ?></h1>
+  <h1>Instalaciones de <?= e($ficha['nombre']) ?></h1>
 
-<?php pintar_mensajes(); ?>
-<?php car_menu_ficha($ficha, 'instalaciones'); ?>
+  <?php pintar_mensajes(); ?>
+  <?php car_menu_ficha($ficha, 'instalaciones'); ?>
 
-<?php if ($errores): ?>
+  <?php if ($errores): ?>
     <div class="alerta alerta--error" role="alert">
-    <p><span class="alerta__titulo">Revisa los datos.</span> Hay campos con problemas.</p>
+      <p><span class="alerta__titulo">Revisa los datos.</span> Hay campos con problemas.</p>
     </div>
-<?php endif; ?>
+  <?php endif; ?>
 
-<?php if ($editable): ?>
-<form class="formulario panel mb-6" method="POST" action="" enctype="multipart/form-data">
+  <?php if ($editable): ?>
+  <form class="formulario panel mb-6" method="POST" action="" enctype="multipart/form-data">
     <?= campo_token() ?>
     <?php if ($editando): ?>
-    <input type="hidden" name="instalacion_id" value="<?= (int)$editando['id'] ?>">
+      <input type="hidden" name="instalacion_id" value="<?= (int)$editando['id'] ?>">
     <?php endif; ?>
     <h2><?= $editando ? 'Editar instalación' : 'Agregar instalación' ?></h2>
 
     <div class="campo <?= isset($errores['nombre']) ? 'campo--invalido' : '' ?>">
       <label class="campo__etiqueta" for="nombre">Nombre *</label>
-    <input class="campo__control" type="text" id="nombre" name="nombre"
-            maxlength="150" value="<?= e($datos['nombre']) ?>" required>
-    <?php if (isset($errores['nombre'])): ?><small class="campo__error"><?= e($errores['nombre']) ?></small><?php endif; ?>
+      <input class="campo__control" type="text" id="nombre" name="nombre"
+             maxlength="150" value="<?= e($datos['nombre']) ?>" required>
+      <?php if (isset($errores['nombre'])): ?><small class="campo__error"><?= e($errores['nombre']) ?></small><?php endif; ?>
     </div>
 
     <div class="campo <?= isset($errores['descripcion']) ? 'campo--invalido' : '' ?>">
       <label class="campo__etiqueta" for="descripcion">Descripción *</label>
-    <textarea class="campo__control" id="descripcion" name="descripcion" rows="3"
+      <textarea class="campo__control" id="descripcion" name="descripcion" rows="3"
                 maxlength="1000" required><?= e($datos['descripcion']) ?></textarea>
-    <?php if (isset($errores['descripcion'])): ?><small class="campo__error"><?= e($errores['descripcion']) ?></small><?php endif; ?>
+      <?php if (isset($errores['descripcion'])): ?><small class="campo__error"><?= e($errores['descripcion']) ?></small><?php endif; ?>
     </div>
 
     <div class="campo <?= isset($errores['orden']) ? 'campo--invalido' : '' ?>" style="max-width:140px">
-    <label class="campo__etiqueta" for="orden">Orden</label>
-    <input class="campo__control" type="number" id="orden" name="orden"
-            min="1" max="99" value="<?= e($datos['orden']) ?>">
-    <?php if (isset($errores['orden'])): ?><small class="campo__error"><?= e($errores['orden']) ?></small><?php endif; ?>
+      <label class="campo__etiqueta" for="orden">Orden</label>
+      <input class="campo__control" type="number" id="orden" name="orden"
+             min="1" max="99" value="<?= e($datos['orden']) ?>">
+      <?php if (isset($errores['orden'])): ?><small class="campo__error"><?= e($errores['orden']) ?></small><?php endif; ?>
     </div>
 
     <div class="campo <?= isset($errores['imagen']) ? 'campo--invalido' : '' ?>">
-    <label class="campo__etiqueta" for="imagen">Imagen</label>
-    <?php if (!empty($editando['imagen_servidor'])): ?>
+      <label class="campo__etiqueta" for="imagen">Imagen</label>
+      <?php if (!empty($editando['imagen_servidor'])): ?>
         <img src="../uploads/<?= e($editando['imagen_servidor']) ?>" alt="Imagen actual"
-            style="max-width:220px;border-radius:6px;margin-bottom:8px">
-    <?php endif; ?>
-    <input class="campo__control" type="file" id="imagen" name="imagen" accept="image/jpeg,image/png,image/webp">
-        <small class="campo__ayuda">JPG, PNG o WebP. Máximo 2 MB.</small>
-        <?php if (isset($errores['imagen'])): ?><small class="campo__error"><?= e($errores['imagen']) ?></small><?php endif; ?>
+             style="max-width:220px;border-radius:6px;margin-bottom:8px">
+      <?php endif; ?>
+      <input class="campo__control" type="file" id="imagen" name="imagen" accept="image/jpeg,image/png,image/webp">
+      <small class="campo__ayuda">JPG, PNG o WebP. Máximo 2 MB.</small>
+      <?php if (isset($errores['imagen'])): ?><small class="campo__error"><?= e($errores['imagen']) ?></small><?php endif; ?>
     </div>
 
     <div class="fila">
-        <button class="boton boton--primario" type="submit"><?= $editando ? 'Guardar cambios' : 'Agregar' ?></button>
-        <?php if ($editando): ?><a class="boton boton--secundario" href="<?= e($volver) ?>">Cancelar</a><?php endif; ?>
+      <button class="boton boton--primario" type="submit"><?= $editando ? 'Guardar cambios' : 'Agregar' ?></button>
+      <?php if ($editando): ?><a class="boton boton--secundario" href="<?= e($volver) ?>">Cancelar</a><?php endif; ?>
     </div>
-    </form>
-    <?php else: ?>
+  </form>
+  <?php else: ?>
     <div class="alerta alerta--info"><p>La ficha no está en borrador: solo puedes consultar las instalaciones.</p></div>
-    <?php endif; ?>
+  <?php endif; ?>
 
-    <?php if (!$instalaciones): ?>
+  <?php if (!$instalaciones): ?>
     <div class="vacio"><h3>Sin instalaciones</h3><p>Agrega la primera con el formulario.</p></div>
-    <?php else: ?>
+  <?php else: ?>
     <div class="tabla-envoltura">
-        <table class="tabla">
+      <table class="tabla">
         <caption><?= count($instalaciones) ?> instalación<?= count($instalaciones) === 1 ? '' : 'es' ?></caption>
         <thead>
-            <tr><th scope="col">Orden</th><th scope="col">Nombre</th><th scope="col">Imagen</th><th scope="col">Acciones</th></tr>
+          <tr><th scope="col">Orden</th><th scope="col">Nombre</th><th scope="col">Imagen</th><th scope="col">Acciones</th></tr>
         </thead>
         <tbody>
         <?php foreach ($instalaciones as $i): ?>
-            <tr>
+          <tr>
             <td><?= (int)$i['orden'] ?></td>
             <td><?= e($i['nombre']) ?></td>
             <td><?= $i['imagen_servidor'] ? 'Sí' : '—' ?></td>
             <td>
-                <?php if ($editable): ?>
-                <div class="tabla__acciones">
+              <?php if ($editable): ?>
+              <div class="tabla__acciones">
                 <a class="boton boton--secundario boton--pequeno" href="?ficha=<?= $fichaId ?>&amp;editar=<?= (int)$i['id'] ?>">Editar</a>
                 <form method="POST" action="instalacion_eliminar.php"
-                        data-confirmar="¿Eliminar esta instalación? No se puede deshacer."
-                        data-confirmar-boton="Eliminar" data-confirmar-tipo="peligro">
-                    <?= campo_token() ?>
-                <input type="hidden" name="id" value="<?= (int)$i['id'] ?>">
-                    <button class="boton boton--peligro boton--pequeno" type="submit">Eliminar</button>
+                      onsubmit="return confirm('¿Eliminar esta instalación? No se puede deshacer.')">
+                  <?= campo_token() ?>
+                  <input type="hidden" name="id" value="<?= (int)$i['id'] ?>">
+                  <button class="boton boton--peligro boton--pequeno" type="submit">Eliminar</button>
                 </form>
-                </div>
-                <?php endif; ?>
+              </div>
+              <?php endif; ?>
             </td>
-            </tr>
+          </tr>
         <?php endforeach; ?>
         </tbody>
-        </table>
+      </table>
     </div>
-    <?php endif; ?>
+  <?php endif; ?>
 
 </section>
-<script src="../js/confirmar.js"></script>
+
 <?php
 pie();
