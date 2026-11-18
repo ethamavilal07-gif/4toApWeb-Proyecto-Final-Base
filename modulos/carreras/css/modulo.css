@@ -76,3 +76,8 @@
 .formulario { max-width: none; }
 .formulario .campo__control { width: 100%; }
 .formulario textarea.campo__control { min-height: 9rem; }
+
+
+/* Los campos de una fila se alinean arriba: si uno muestra su mensaje de
+   error y crece, los demás no se mueven. */
+.formulario .fila { align-items: flex-start; }

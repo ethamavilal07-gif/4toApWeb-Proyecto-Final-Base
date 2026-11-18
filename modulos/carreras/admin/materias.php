@@ -400,5 +400,6 @@ cabecera('Materias', $ficha['area'], '../css/modulo.css');
 </section>
 <script src="../js/confirmar.js"></script>
 <script src="../js/unidades.js"></script>
+<script src="../js/validar.js"></script>
 <?php
 pie();
