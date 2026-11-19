@@ -211,7 +211,7 @@ cabecera('Instalaciones', $ficha['area'], '../css/modulo.css');
               <?php if ($editable): ?>
               <div class="tabla__acciones">
                 <a class="boton boton--secundario boton--pequeno" href="?ficha=<?= $fichaId ?>&amp;editar=<?= (int)$i['id'] ?>">Editar</a>
-                <form method="POST" action="instalacion_eliminar.php"
+                <form method="POST" action="instalaciones_eliminar.php"
                       onsubmit="return confirm('¿Eliminar esta instalación? No se puede deshacer.')">
                   <?= campo_token() ?>
                   <input type="hidden" name="id" value="<?= (int)$i['id'] ?>">
