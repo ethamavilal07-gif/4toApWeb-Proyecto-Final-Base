@@ -102,6 +102,9 @@ cabecera('Documentos', $ficha['area'], '../css/modulo.css');
     <div class="campo <?= isset($errores['archivo']) ? 'campo--invalido' : '' ?>">
       <label class="campo__etiqueta" for="archivo">Archivo PDF *</label>
     <input class="campo__control" type="file" id="archivo" name="archivo" accept="application/pdf" required>
+    <button class="boton boton--peligro boton--pequeno" type="button"
+            id="quitar-archivo" style="display: none; margin-top: var(--e2);" hidden>
+        Quitar archivo seleccionado</button>
     <small class="campo__ayuda">Solo PDF. Máximo 10 MB. El servidor comprueba el tipo real.</small>
     <?php if (isset($errores['archivo'])): ?><small class="campo__error"><?= e($errores['archivo']) ?></small><?php endif; ?>
     </div>
@@ -158,6 +161,28 @@ cabecera('Documentos', $ficha['area'], '../css/modulo.css');
 <?php endif; ?>
 
 </section>
+<script>
+(function () {
+    var archivo = document.getElementById('archivo');
+    var quitar = document.getElementById('quitar-archivo');
+    if (!archivo || !quitar) { return; }
+
+    function actualizarBoton() {
+        quitar.hidden = !archivo.files.length;
+        quitar.style.display = archivo.files.length ? 'inline-flex' : 'none';
+    }
+
+    archivo.addEventListener('change', actualizarBoton);
+
+    quitar.addEventListener('click', function () {
+        archivo.value = '';
+        actualizarBoton();
+        archivo.focus();
+    });
+
+    actualizarBoton();
+})();
+</script>
 <script src="../js/confirmar.js"></script>
 <script src="../js/validar.js"></script>
 <?php
