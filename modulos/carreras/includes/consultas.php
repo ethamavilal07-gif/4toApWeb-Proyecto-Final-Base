@@ -210,6 +210,50 @@ function car_guardar_portada(int $fichaId, ?string $archivo): void
     $con->execute([$archivo, $fichaId]);
 }
 
+/** Guarda el nombre (generado por el servidor) de la imagen de fondo de la primera vista. */
+function car_guardar_fondo(int $fichaId, ?string $archivo): void
+{
+    $con = bd()->prepare('UPDATE car_fichas SET imagen_fondo = ? WHERE id = ?');
+    $con->execute([$archivo, $fichaId]);
+}
+
+/* =========================================================================
+ * GALERÍA · hasta 6 fotos por ficha (carrusel de la ficha pública)
+ * ====================================================================== */
+
+const CAR_GALERIA_MAX = 6;
+
+function car_galeria_de_ficha(int $fichaId): array
+{
+    $con = bd()->prepare('SELECT * FROM car_galeria WHERE ficha_id = ? ORDER BY orden');
+    $con->execute([$fichaId]);
+    return $con->fetchAll();
+}
+
+/** Foto de un lugar concreto (1 a 6) de la ficha, o null. */
+function car_galeria_obtener(int $fichaId, int $orden): ?array
+{
+    $con = bd()->prepare('SELECT * FROM car_galeria WHERE ficha_id = ? AND orden = ?');
+    $con->execute([$fichaId, $orden]);
+    return $con->fetch() ?: null;
+}
+
+/** Pone una foto en un lugar; si ya había una, la reemplaza. */
+function car_galeria_guardar(int $fichaId, int $orden, string $archivo): void
+{
+    $con = bd()->prepare(
+        'INSERT INTO car_galeria (ficha_id, orden, imagen_servidor) VALUES (?, ?, ?)
+        ON DUPLICATE KEY UPDATE imagen_servidor = VALUES(imagen_servidor)'
+    );
+    $con->execute([$fichaId, $orden, $archivo]);
+}
+
+function car_galeria_eliminar(int $fichaId, int $orden): void
+{
+    $con = bd()->prepare('DELETE FROM car_galeria WHERE ficha_id = ? AND orden = ?');
+    $con->execute([$fichaId, $orden]);
+}
+
 /**
  * Bandeja de la coordinación: una fila por carrera, con el estado de su
  * ficha (estado NULL = todavía no tiene ficha).

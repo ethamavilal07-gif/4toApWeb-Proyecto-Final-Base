@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS car_fichas (
     campo_laboral  TEXT NOT NULL,
     video_url      VARCHAR(255) NULL,
     imagen_portada VARCHAR(255) NULL,          -- nombre generado por el servidor
+    imagen_fondo   VARCHAR(255) NULL,          -- fondo de la primera vista (hero)
     estado         ENUM('borrador','revision','publicado') NOT NULL DEFAULT 'borrador',
     actualizado_por INT UNSIGNED NULL,
     creado_en      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -93,6 +94,24 @@ CREATE TABLE IF NOT EXISTS car_instalaciones (
     KEY ix_car_instalaciones_ficha (ficha_id),
 
     CONSTRAINT fk_car_instalaciones_ficha
+        FOREIGN KEY (ficha_id) REFERENCES car_fichas(id)
+        ON UPDATE CASCADE ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- -----------------------------------------------------------------------------
+-- car_galeria · hasta 6 fotos por ficha, para el carrusel de la ficha pública
+-- orden va de 1 a 6 y es único por ficha (un lugar por foto).
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS car_galeria (
+    id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    ficha_id        INT UNSIGNED NOT NULL,
+    orden           TINYINT UNSIGNED NOT NULL,
+    imagen_servidor VARCHAR(255) NOT NULL,     -- nombre generado por el servidor
+    creado_en       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE KEY uq_car_galeria_ficha_orden (ficha_id, orden),
+
+    CONSTRAINT fk_car_galeria_ficha
         FOREIGN KEY (ficha_id) REFERENCES car_fichas(id)
         ON UPDATE CASCADE ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

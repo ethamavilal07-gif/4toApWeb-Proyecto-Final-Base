@@ -5,14 +5,14 @@
 
 declare(strict_types=1);
 
-require_once _DIR_ . '/../../../nucleo/comun.php';
+require_once __DIR__ . '/../../../nucleo/comun.php';
 
 requerir_rol('editor', 'coordinacion');
 
-require_once _DIR_ . '/../includes/consultas.php';
-require_once _DIR_ . '/../includes/panel.php';
+require_once __DIR__ . '/../includes/consultas.php';
+require_once __DIR__ . '/../includes/panel.php';
 
-const CARPETA_SUBIDAS = _DIR_ . '/../uploads';
+const CARPETA_SUBIDAS = __DIR__ . '/../uploads';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);

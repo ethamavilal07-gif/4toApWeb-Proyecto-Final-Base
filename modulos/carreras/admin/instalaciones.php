@@ -1,6 +1,7 @@
 <?php
 /**
  * CAR · Instalaciones de una ficha (alta, consulta, modificación)
+ * Incluye las fotos del carrusel de la ficha pública (hasta 6).
  */
 
 declare(strict_types=1);
@@ -47,6 +48,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirigir($volver);
     }
 
+    $accion = post('accion');
+
+    /* ---------------------------------------------------------------
+     * Fotos del carrusel (6 lugares): subir, reemplazar o borrar
+     * ------------------------------------------------------------- */
+    if ($accion === 'galeria_subir' || $accion === 'galeria_quitar') {
+
+        // El lugar (1 a 6) se valida en el servidor, no se confía en el formulario.
+        $lugar = entero(post('lugar'));
+        if ($lugar === null || $lugar < 1 || $lugar > CAR_GALERIA_MAX) {
+            mensaje('error', 'Lugar de la galería no válido.');
+            redirigir($volver);
+        }
+        $actual = car_galeria_obtener($fichaId, $lugar);
+
+        if ($accion === 'galeria_quitar') {
+            if ($actual !== null) {
+                car_galeria_eliminar($fichaId, $lugar);
+                @unlink(CARPETA_SUBIDAS . '/' . $actual['imagen_servidor']);
+                mensaje('exito', 'Foto ' . $lugar . ' eliminada.');
+            }
+            redirigir($volver);
+        }
+
+        if (empty($_FILES['imagen']['name'])) {
+            mensaje('error', 'Selecciona una imagen para la foto ' . $lugar . '.');
+            redirigir($volver);
+        }
+
+        try {
+            // Tipo real (finfo), tamaño y nombre generado: guardar_archivo().
+            $nuevo = guardar_archivo($_FILES['imagen'], CARPETA_SUBIDAS, SOLO_IMAGEN, 3);
+            car_galeria_guardar($fichaId, $lugar, $nuevo);
+            if ($actual !== null) {
+                @unlink(CARPETA_SUBIDAS . '/' . $actual['imagen_servidor']);
+            }
+            mensaje('exito', 'Foto ' . $lugar . ' guardada.');
+        } catch (RuntimeException $e) {
+            mensaje('error', 'Foto ' . $lugar . ': ' . $e->getMessage());
+        }
+        redirigir($volver);   // POST-Redirect-GET
+    }
+
+    /* ---------------------------------------------------------------
+     * Instalaciones
+     * ------------------------------------------------------------- */
     $instId = entero(post('instalacion_id'));
     $existente = null;
     if ($instId !== null) {
@@ -54,6 +101,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($existente === null || (int)$existente['ficha_id'] !== $fichaId) {
             no_encontrado('La instalación no existe.');
         }
+    }
+
+    // Borrar solo la imagen de una instalación ya guardada.
+    if ($accion === 'quitar_imagen') {
+        if ($existente !== null && !empty($existente['imagen_servidor'])) {
+            car_instalacion_actualizar((int)$existente['id'], [
+                'nombre'          => $existente['nombre'],
+                'descripcion'     => $existente['descripcion'],
+                'imagen_servidor' => null,
+                'orden'           => $existente['orden'],
+            ]);
+            @unlink(CARPETA_SUBIDAS . '/' . $existente['imagen_servidor']);
+            mensaje('exito', 'Imagen eliminada.');
+        }
+        redirigir($volver . ($existente !== null ? '&editar=' . (int)$existente['id'] : ''));
     }
 
     foreach ($datos as $campo => $_) {
@@ -119,6 +181,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $instalaciones = car_instalaciones_de_ficha($fichaId);
 
+// Fotos del carrusel indexadas por lugar, para pintar los 6 espacios.
+$fotos = [];
+foreach (car_galeria_de_ficha($fichaId) as $f) {
+    $fotos[(int)$f['orden']] = $f;
+}
+
 cabecera('Instalaciones', $ficha['area'], '../css/modulo.css');
 ?>
 
@@ -174,11 +242,23 @@ cabecera('Instalaciones', $ficha['area'], '../css/modulo.css');
 
     <div class="campo <?= isset($errores['imagen']) ? 'campo--invalido' : '' ?>">
       <label class="campo__etiqueta" for="imagen">Imagen</label>
-      <?php if (!empty($editando['imagen_servidor'])): ?>
-        <img src="../uploads/<?= e($editando['imagen_servidor']) ?>" alt="Imagen actual"
-             style="max-width:220px;border-radius:6px;margin-bottom:8px">
-      <?php endif; ?>
-      <input class="campo__control" type="file" id="imagen" name="imagen" accept="image/jpeg,image/png,image/webp">
+      <img id="vista-imagen" class="car-vista-previa car-vista-previa--corta"
+           src="<?= !empty($editando['imagen_servidor']) ? '../uploads/' . e($editando['imagen_servidor']) : '' ?>"
+           alt="Vista previa de la imagen" <?= empty($editando['imagen_servidor']) ? 'hidden' : '' ?>>
+      <div class="fila" style="margin-bottom: var(--e3);">
+        <?php if (!empty($editando['imagen_servidor'])): ?>
+          <button class="boton boton--peligro boton--pequeno" type="submit"
+                  name="accion" value="quitar_imagen" formnovalidate
+                  data-confirmar="¿Borrar la imagen actual? Se elimina al instante y no se puede deshacer."
+                  data-confirmar-boton="Borrar imagen" data-confirmar-tipo="peligro">
+            Borrar imagen actual
+          </button>
+        <?php endif; ?>
+        <button class="boton boton--secundario boton--pequeno" type="button"
+                id="limpiar-imagen" hidden>Quitar selección</button>
+      </div>
+      <input class="campo__control" type="file" id="imagen" name="imagen" accept="image/jpeg,image/png,image/webp"
+             data-vista="vista-imagen" data-vista-limpiar="limpiar-imagen">
       <small class="campo__ayuda">JPG, PNG o WebP. Máximo 2 MB.</small>
       <?php if (isset($errores['imagen'])): ?><small class="campo__error"><?= e($errores['imagen']) ?></small><?php endif; ?>
     </div>
@@ -211,8 +291,9 @@ cabecera('Instalaciones', $ficha['area'], '../css/modulo.css');
               <?php if ($editable): ?>
               <div class="tabla__acciones">
                 <a class="boton boton--secundario boton--pequeno" href="?ficha=<?= $fichaId ?>&amp;editar=<?= (int)$i['id'] ?>">Editar</a>
-                <form method="POST" action="instalacion_eliminar.php"
-                      onsubmit="return confirm('¿Eliminar esta instalación? No se puede deshacer.')">
+                <form method="POST" action="instalaciones_eliminar.php"
+                      data-confirmar="¿Eliminar esta instalación? No se puede deshacer."
+                      data-confirmar-boton="Eliminar" data-confirmar-tipo="peligro">
                   <?= campo_token() ?>
                   <input type="hidden" name="id" value="<?= (int)$i['id'] ?>">
                   <button class="boton boton--peligro boton--pequeno" type="submit">Eliminar</button>
@@ -227,7 +308,66 @@ cabecera('Instalaciones', $ficha['area'], '../css/modulo.css');
     </div>
   <?php endif; ?>
 
+  <h2 class="mt-6">Fotos del carrusel</h2>
+  <p class="ancho-lectura">
+    Hasta <?= CAR_GALERIA_MAX ?> fotos. En la ficha pública se muestran en un carrusel
+    que gira solo, con la foto central enfocada. JPG, PNG o WebP, máximo 3 MB cada una.
+    <strong><?= count($fotos) ?> de <?= CAR_GALERIA_MAX ?></strong> cargadas.
+  </p>
+
+  <div class="car-galeria-admin">
+    <?php for ($n = 1; $n <= CAR_GALERIA_MAX; $n++): $foto = $fotos[$n] ?? null; ?>
+      <div class="panel car-galeria-admin__lugar">
+        <h3 class="car-galeria-admin__titulo">Foto <?= $n ?></h3>
+
+        <img class="car-galeria-admin__imagen" id="vista-galeria-<?= $n ?>"
+             src="<?= $foto ? '../uploads/' . e($foto['imagen_servidor']) : '' ?>"
+             alt="Foto <?= $n ?> del carrusel" <?= $foto ? '' : 'hidden' ?>>
+        <?php if (!$foto): ?>
+          <div class="car-galeria-admin__vacio" id="vacio-galeria-<?= $n ?>">Sin foto</div>
+        <?php endif; ?>
+
+        <?php if ($editable): ?>
+          <form class="formulario" method="POST" action="" enctype="multipart/form-data">
+            <?= campo_token() ?>
+            <input type="hidden" name="accion" value="galeria_subir">
+            <input type="hidden" name="lugar" value="<?= $n ?>">
+            <div class="campo">
+              <label class="campo__etiqueta" for="imagen-galeria-<?= $n ?>"><?= $foto ? 'Reemplazar' : 'Elegir imagen' ?></label>
+              <input class="campo__control" type="file" id="imagen-galeria-<?= $n ?>" name="imagen"
+                     accept="image/jpeg,image/png,image/webp" required
+                     data-vista="vista-galeria-<?= $n ?>" data-vista-vacio="vacio-galeria-<?= $n ?>"
+                     data-vista-limpiar="limpiar-galeria-<?= $n ?>">
+            </div>
+            <div class="fila">
+              <button class="boton boton--primario boton--pequeno" type="submit">
+                <?= $foto ? 'Reemplazar' : 'Subir' ?>
+              </button>
+              <button class="boton boton--secundario boton--pequeno" type="button"
+                      id="limpiar-galeria-<?= $n ?>" hidden>Quitar selección</button>
+            </div>
+          </form>
+
+          <?php if ($foto): ?>
+            <form method="POST" action=""
+                  data-confirmar="¿Borrar la foto <?= $n ?> del carrusel? No se puede deshacer."
+                  data-confirmar-boton="Borrar imagen" data-confirmar-tipo="peligro">
+              <?= campo_token() ?>
+              <input type="hidden" name="accion" value="galeria_quitar">
+              <input type="hidden" name="lugar" value="<?= $n ?>">
+              <button class="boton boton--peligro boton--pequeno" type="submit">Borrar imagen actual</button>
+            </form>
+          <?php endif; ?>
+        <?php endif; ?>
+      </div>
+    <?php endfor; ?>
+  </div>
+
 </section>
+
+<script src="../js/confirmar.js"></script>
+<script src="../js/validar.js"></script>
+<script src="../js/vista-previa.js"></script>
 
 <?php
 pie();

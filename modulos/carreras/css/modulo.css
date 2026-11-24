@@ -81,3 +81,213 @@
 /* Los campos de una fila se alinean arriba: si uno muestra su mensaje de
    error y crece, los demás no se mueven. */
 .formulario .fila { align-items: flex-start; }
+
+
+/* ---------------------------------------------------------------------------
+   CAR · Ficha pública
+   --------------------------------------------------------------------------- */
+
+/* Primera vista: título sobre la foto de fondo */
+.car-hero {
+    display: flex;
+    align-items: flex-end;
+    min-height: 16rem;
+}
+
+.car-hero > .contenedor { width: 100%; }
+
+.car-hero--foto {
+    min-height: clamp(18rem, 40vw, 28rem);
+    background-image:
+        linear-gradient(90deg,
+            color-mix(in srgb, var(--marca-900) 88%, transparent) 0%,
+            color-mix(in srgb, var(--marca-900) 50%, transparent) 55%,
+            color-mix(in srgb, var(--marca-900) 10%, transparent) 100%),
+        var(--portada-imagen, none);
+}
+
+.car-hero h1 { text-shadow: 0 2px 12px color-mix(in srgb, var(--marca-900) 60%, transparent); }
+
+.car-hero__volver { margin: 0 0 var(--e3); }
+.car-hero__volver a { color: var(--blanco); text-decoration: underline; }
+
+.car-hero__datos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--e2);
+    margin: var(--e4) 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.car-hero__datos li {
+    padding: 0.2rem var(--e3);
+    border: 1px solid color-mix(in srgb, var(--blanco) 55%, transparent);
+    border-radius: var(--radio-pastilla);
+    background: color-mix(in srgb, var(--marca-900) 45%, transparent);
+    color: var(--blanco);
+    font-size: var(--t-sm);
+}
+
+/* Distribución del contenido */
+.car-ficha { display: grid; gap: var(--e7); }
+
+.car-bloque > h2:first-child,
+.car-intro h2,
+.car-tarjeta-texto h2 { margin-top: 0; }
+
+.car-intro { display: grid; gap: var(--e5); }
+.car-intro__imagen {
+    width: 100%;
+    max-height: 22rem;
+    object-fit: cover;
+    border-radius: var(--radio-md);
+    box-shadow: var(--sombra-2);
+}
+.car-intro__texto p { max-width: var(--ancho-lectura); }
+
+@media (min-width: 800px) {
+    .car-intro--con-imagen { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); align-items: center; }
+}
+
+.car-dos-col { display: grid; gap: var(--e5); }
+@media (min-width: 800px) {
+    .car-dos-col { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.car-tarjeta-texto { border-top: 3px solid var(--area); }
+
+/* Carrusel infinito: foto central enfocada, las demás desenfocadas.
+   Sin JavaScript se ve como una rejilla simple. */
+.car-carrusel { position: relative; }
+
+.car-carrusel__pista {
+    display: grid;
+    gap: var(--e3);
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+}
+
+.car-carrusel__slide { margin: 0; }
+.car-carrusel__slide img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    object-fit: cover;
+    border-radius: var(--radio-md);
+}
+
+.car-carrusel.is-js .car-carrusel__pista {
+    display: block;
+    position: relative;
+    height: clamp(15rem, 36vw, 26rem);
+    overflow: hidden;
+}
+
+.car-carrusel.is-js .car-carrusel__slide {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: min(62%, 38rem);
+    height: 100%;
+    transition: transform 0.7s ease, filter 0.7s ease, opacity 0.7s ease;
+    cursor: pointer;
+    will-change: transform;
+}
+
+.car-carrusel.is-js .car-carrusel__slide img {
+    height: 100%;
+    aspect-ratio: auto;
+    box-shadow: var(--sombra-3);
+}
+
+.car-carrusel.is-js [data-pos="0"]  { transform: translateX(-50%) scale(1);                 filter: none;      opacity: 1;    z-index: 3; cursor: default; }
+.car-carrusel.is-js [data-pos="1"]  { transform: translateX(calc(-50% + 72%))  scale(0.8);  filter: blur(4px); opacity: 0.8;  z-index: 2; }
+.car-carrusel.is-js [data-pos="-1"] { transform: translateX(calc(-50% - 72%))  scale(0.8);  filter: blur(4px); opacity: 0.8;  z-index: 2; }
+.car-carrusel.is-js [data-pos="2"]  { transform: translateX(calc(-50% + 120%)) scale(0.62); filter: blur(8px); opacity: 0.45; z-index: 1; }
+.car-carrusel.is-js [data-pos="-2"] { transform: translateX(calc(-50% - 120%)) scale(0.62); filter: blur(8px); opacity: 0.45; z-index: 1; }
+.car-carrusel.is-js [data-pos="oculta"] { transform: translateX(-50%) scale(0.5); opacity: 0; z-index: 0; pointer-events: none; }
+
+.car-carrusel__btn {
+    position: absolute;
+    top: 50%;
+    z-index: 4;
+    width: 2.75rem;
+    height: 2.75rem;
+    margin-top: -1.375rem;
+    border: 1px solid var(--borde);
+    border-radius: var(--radio-pastilla);
+    background: var(--blanco);
+    color: var(--marca-700);
+    font-size: 1.75rem;
+    line-height: 1;
+    cursor: pointer;
+    box-shadow: var(--sombra-2);
+}
+.car-carrusel__btn:hover { background: var(--marca-100); }
+.car-carrusel__btn--ant { left: var(--e2); }
+.car-carrusel__btn--sig { right: var(--e2); }
+.car-carrusel:not(.is-js) .car-carrusel__btn { display: none; }
+
+@media (max-width: 600px) {
+    .car-carrusel.is-js .car-carrusel__slide { width: 72%; }
+    .car-carrusel.is-js [data-pos="1"]  { transform: translateX(calc(-50% + 62%))  scale(0.75); }
+    .car-carrusel.is-js [data-pos="-1"] { transform: translateX(calc(-50% - 62%))  scale(0.75); }
+    .car-carrusel.is-js [data-pos="2"],
+    .car-carrusel.is-js [data-pos="-2"] { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .car-carrusel.is-js .car-carrusel__slide { transition: none; }
+}
+
+/* Panel · galería de 6 lugares */
+.car-galeria-admin {
+    display: grid;
+    gap: var(--e5);
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+.car-galeria-admin__titulo { margin: 0 0 var(--e3); font-size: var(--t-lg); }
+.car-galeria-admin__imagen,
+.car-galeria-admin__vacio {
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    margin-bottom: var(--e3);
+    border-radius: var(--radio-sm);
+}
+.car-galeria-admin__imagen { object-fit: cover; }
+.car-galeria-admin__vacio {
+    display: grid;
+    place-items: center;
+    border: 2px dashed var(--borde);
+    color: var(--texto-suave);
+}
+
+/* Panel · vista previa de imágenes */
+.car-vista-previa {
+    display: block;
+    width: 100%;
+    max-width: 32rem;
+    margin-bottom: var(--e3);
+    border: 1px solid var(--borde);
+    border-radius: var(--radio-md);
+    aspect-ratio: 16 / 6;
+    object-fit: cover;
+}
+.car-vista-previa--corta { max-width: 16rem; aspect-ratio: 4 / 3; }
+.car-vista-previa[hidden] { display: none; }
+.car-galeria-admin__imagen[hidden],
+.car-galeria-admin__vacio[hidden] { display: none; }
+
+/* Panel · vista previa del video */
+.car-vista-video {
+    max-width: 32rem;
+    margin-bottom: var(--e3);
+    border: 1px solid var(--borde);
+    border-radius: var(--radio-md);
+    overflow: hidden;
+    background: var(--marca-900);
+    aspect-ratio: 16 / 9;
+}
+.car-vista-video[hidden] { display: none; }
+.car-vista-video iframe,
+.car-vista-video video { display: block; width: 100%; height: 100%; border: 0; }

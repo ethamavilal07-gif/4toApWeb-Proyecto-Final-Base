@@ -62,3 +62,54 @@ function car_menu_ficha(array $ficha, string $actual): void
     }
     echo '</div>';
 }
+
+/**
+ * Datos para incrustar una vista previa del video, o null si la dirección no
+ * se puede mostrar (entonces en la ficha pública queda solo como enlace).
+ * Reconoce YouTube, Vimeo y archivos .mp4 / .webm / .ogg directos.
+ *
+ * @return array{tipo:string,src:string}|null
+ */
+function car_video_embed(?string $url): ?array
+{
+    $url = trim((string)$url);
+    if ($url === '' || preg_match('#^https?://#i', $url) !== 1) {
+        return null;
+    }
+
+    $partes = parse_url($url);
+    if ($partes === false || empty($partes['host'])) {
+        return null;
+    }
+    $host = strtolower(preg_replace('/^(www|m)\./i', '', $partes['host']));
+    $ruta = $partes['path'] ?? '';
+
+    // YouTube
+    if ($host === 'youtube.com' || $host === 'youtu.be') {
+        $id = null;
+        if ($host === 'youtu.be') {
+            $id = ltrim($ruta, '/');
+        } elseif (preg_match('#^/(embed|shorts|live)/([A-Za-z0-9_-]{11})#', $ruta, $m)) {
+            $id = $m[2];
+        } else {
+            parse_str($partes['query'] ?? '', $q);
+            $id = $q['v'] ?? null;
+        }
+        if (is_string($id) && preg_match('/^[A-Za-z0-9_-]{11}$/', $id) === 1) {
+            return ['tipo' => 'iframe', 'src' => 'https://www.youtube-nocookie.com/embed/' . $id];
+        }
+        return null;
+    }
+
+    // Vimeo
+    if ($host === 'vimeo.com' && preg_match('#^/(\d+)#', $ruta, $m)) {
+        return ['tipo' => 'iframe', 'src' => 'https://player.vimeo.com/video/' . $m[1]];
+    }
+
+    // Archivo de video directo
+    if (preg_match('/\.(mp4|webm|ogg)$/i', $ruta) === 1) {
+        return ['tipo' => 'video', 'src' => $url];
+    }
+
+    return null;
+}

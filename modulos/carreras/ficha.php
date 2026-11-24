@@ -24,6 +24,7 @@ if ($ficha === null) {
 $materias       = car_materias_de_ficha((int)$ficha['id']);
 $instalaciones  = car_instalaciones_de_ficha((int)$ficha['id']);
 $documentos     = car_documentos_de_ficha((int)$ficha['id']);
+$galeria        = car_galeria_de_ficha((int)$ficha['id']);
 
 // Se agrupan las materias por cuatrimestre.
 $porCuatri = [];
@@ -36,41 +37,76 @@ $video = (string)($ficha['video_url'] ?? '');
 $videoValido = $video !== '' && preg_match('#^https?://#i', $video) === 1;
 
 cabecera($ficha['nombre'], $ficha['area'], 'css/modulo.css');
+
+$conFondo = !empty($ficha['imagen_fondo']);
+$estiloHero = $conFondo
+    ? " style=\"--portada-imagen:url('uploads/" . e($ficha['imagen_fondo']) . "')\""
+    : '';
 ?>
 
-<section class="portada">
+<section class="portada car-hero<?= $conFondo ? ' portada--imagen car-hero--foto' : '' ?>"<?= $estiloHero ?>>
 <div class="contenedor">
-    <p class="leyenda"><a href="./">&larr; Todas las carreras</a></p>
+    <p class="car-hero__volver"><a href="./">&larr; Todas las carreras</a></p>
     <h1><?= e($ficha['nombre']) ?></h1>
-    <p class="entradilla">
-    <?= e(CAR_AREAS[$ficha['area']] ?? $ficha['area']) ?> ·
-    <?= e($ficha['modalidad']) ?> · <?= e($ficha['duracion']) ?>
-    </p>
+    <ul class="car-hero__datos">
+    <li><?= e(CAR_AREAS[$ficha['area']] ?? $ficha['area']) ?></li>
+    <li><?= e($ficha['modalidad']) ?></li>
+    <li><?= e($ficha['duracion']) ?></li>
+    </ul>
 </div>
 </section>
 
-<section class="contenedor seccion">
+<section class="contenedor seccion car-ficha">
 
 <?php pintar_mensajes(); ?>
 
-<?php if ($ficha['imagen_portada']): ?>
-    <img src="uploads/<?= e($ficha['imagen_portada']) ?>"
-        alt="Portada de <?= e($ficha['nombre']) ?>" style="max-width:100%;height:auto">
+<div class="car-intro<?= $ficha['imagen_portada'] ? ' car-intro--con-imagen' : '' ?>">
+    <?php if ($ficha['imagen_portada']): ?>
+    <img class="car-intro__imagen" src="uploads/<?= e($ficha['imagen_portada']) ?>"
+        alt="Portada de <?= e($ficha['nombre']) ?>">
+    <?php endif; ?>
+    <div class="car-intro__texto">
+    <h2>Resumen</h2>
+    <p><?= nl2br(e($ficha['resumen'])) ?></p>
+    <?php if ($videoValido): ?>
+        <p><a class="boton boton--primario" href="<?= e($video) ?>" target="_blank" rel="noopener">Ver video de la carrera</a></p>
+    <?php endif; ?>
+    </div>
+</div>
+
+<?php if ($galeria): ?>
+<div class="car-bloque">
+    <h2>Conoce la carrera</h2>
+    <div class="car-carrusel" data-carrusel aria-roledescription="carrusel"
+        aria-label="Fotos de <?= e($ficha['nombre']) ?>">
+    <div class="car-carrusel__pista">
+        <?php foreach ($galeria as $g): ?>
+        <figure class="car-carrusel__slide">
+            <img src="uploads/<?= e($g['imagen_servidor']) ?>"
+                alt="Foto <?= (int)$g['orden'] ?> de <?= e($ficha['nombre']) ?>" loading="lazy">
+        </figure>
+        <?php endforeach; ?>
+    </div>
+    <?php if (count($galeria) > 1): ?>
+        <button class="car-carrusel__btn car-carrusel__btn--ant" type="button" aria-label="Foto anterior">&#8249;</button>
+        <button class="car-carrusel__btn car-carrusel__btn--sig" type="button" aria-label="Foto siguiente">&#8250;</button>
+    <?php endif; ?>
+    </div>
+</div>
 <?php endif; ?>
 
-<h2>Resumen</h2>
-<p class="ancho-lectura"><?= nl2br(e($ficha['resumen'])) ?></p>
+<div class="car-dos-col">
+    <div class="panel car-tarjeta-texto">
+    <h2>Perfil de egreso</h2>
+    <p><?= nl2br(e($ficha['perfil_egreso'])) ?></p>
+    </div>
+    <div class="panel car-tarjeta-texto">
+    <h2>Campo laboral</h2>
+    <p><?= nl2br(e($ficha['campo_laboral'])) ?></p>
+    </div>
+</div>
 
-<h2>Perfil de egreso</h2>
-<p class="ancho-lectura"><?= nl2br(e($ficha['perfil_egreso'])) ?></p>
-
-<h2>Campo laboral</h2>
-<p class="ancho-lectura"><?= nl2br(e($ficha['campo_laboral'])) ?></p>
-
-<?php if ($videoValido): ?>
-    <p><a class="boton boton--secundario" href="<?= e($video) ?>" target="_blank" rel="noopener">Ver video de la carrera</a></p>
-<?php endif; ?>
-
+<div class="car-bloque">
 <h2>Plan de estudios</h2>
 <?php if (!$porCuatri): ?>
     <p>Las materias se publicarán próximamente.</p>
@@ -94,7 +130,10 @@ cabecera($ficha['nombre'], $ficha['area'], 'css/modulo.css');
     </div>
 <?php endif; ?>
 
+</div>
+
 <?php if ($documentos): ?>
+<div class="car-bloque">
     <h2>Descargas</h2>
     <ul>
     <?php foreach ($documentos as $d): ?>
@@ -104,8 +143,10 @@ cabecera($ficha['nombre'], $ficha['area'], 'css/modulo.css');
         </li>
     <?php endforeach; ?>
     </ul>
+</div>
 <?php endif; ?>
 
+<div class="car-bloque">
 <h2>Instalaciones</h2>
 <?php if (!$instalaciones): ?>
     <p>Aún no hay instalaciones registradas.</p>
@@ -125,8 +166,10 @@ cabecera($ficha['nombre'], $ficha['area'], 'css/modulo.css');
     <?php endforeach; ?>
     </div>
 <?php endif; ?>
+</div>
 
 </section>
 
+<script src="js/carrusel.js"></script>
 <?php
 pie();

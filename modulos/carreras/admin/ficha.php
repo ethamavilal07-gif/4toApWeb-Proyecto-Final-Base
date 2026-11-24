@@ -47,6 +47,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $datos[$campo] = post($campo);
     }
 
+    // Botón "Quitar video": se vacía la dirección y se guarda.
+    if (!empty($_POST['quitar_video'])) {
+        $datos['video_url'] = '';
+    }
+
     /* --- Validación en el servidor --- */
     if ($datos['resumen'] === '') {
         $errores['resumen'] = 'El resumen es obligatorio.';
@@ -86,6 +91,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
+    /* --- Fondo de la primera vista (opcional) --- */
+    $nuevoFondo = null;
+    $quitarFondo = !empty($_POST['quitar_fondo']);
+    if (!$errores && !empty($_FILES['fondo']['name'])) {
+        try {
+            $nuevoFondo = guardar_archivo($_FILES['fondo'], CARPETA_SUBIDAS, SOLO_IMAGEN, 3);
+        } catch (RuntimeException $e) {
+            $errores['fondo'] = $e->getMessage();
+            if ($nuevaPortada !== null) {            // no dejar archivos huérfanos
+                @unlink(CARPETA_SUBIDAS . '/' . $nuevaPortada);
+                $nuevaPortada = null;
+            }
+        }
+    }
+
     /* --- Guardar --- */
     if (!$errores) {
         $uid     = (int)usuario()['id'];
@@ -101,6 +121,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($quitarPortada && !empty($ficha['imagen_portada'])) {
             car_guardar_portada($fichaId, null);
             @unlink(CARPETA_SUBIDAS . '/' . $ficha['imagen_portada']);
+        }
+
+        if ($nuevoFondo !== null) {
+            car_guardar_fondo($fichaId, $nuevoFondo);
+            if (!empty($ficha['imagen_fondo'])) {
+                @unlink(CARPETA_SUBIDAS . '/' . $ficha['imagen_fondo']);
+            }
+        } elseif ($quitarFondo && !empty($ficha['imagen_fondo'])) {
+            car_guardar_fondo($fichaId, null);
+            @unlink(CARPETA_SUBIDAS . '/' . $ficha['imagen_fondo']);
         }
 
         mensaje('exito', 'Ficha guardada.');
@@ -164,29 +194,75 @@ cabecera('Editar ficha', $carrera['area'] ?? '', '../css/modulo.css');
 
     <div class="campo <?= isset($errores['video_url']) ? 'campo--invalido' : '' ?>">
         <label class="campo__etiqueta" for="video_url">Video (dirección)</label>
+        <?php $embed = car_video_embed((string)$datos['video_url']); ?>
+        <div id="vista-video" class="car-vista-video" <?= $embed ? '' : 'hidden' ?>>
+        <?php if ($embed && $embed['tipo'] === 'iframe'): ?>
+            <iframe src="<?= e($embed['src']) ?>" title="Vista previa del video" loading="lazy"
+                    allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
+        <?php elseif ($embed): ?>
+            <video src="<?= e($embed['src']) ?>" controls preload="metadata"></video>
+        <?php endif; ?>
+        </div>
+        <?php if (!empty($ficha['video_url'])): ?>
+        <div class="fila" style="margin-bottom: var(--e3);">
+            <button class="boton boton--peligro boton--pequeno" type="submit"
+                    name="quitar_video" value="1" formnovalidate
+                    data-confirmar="¿Quitar el video de la ficha? Se elimina al instante."
+                    data-confirmar-boton="Quitar video" data-confirmar-tipo="peligro">
+                Borrar video actual
+            </button>
+        </div>
+        <?php endif; ?>
         <input class="campo__control" type="url" id="video_url" name="video_url"
-            value="<?= e((string)$datos['video_url']) ?>" maxlength="255" placeholder="https://">
+            value="<?= e((string)$datos['video_url']) ?>" maxlength="255" placeholder="https://"
+            data-vista-video="vista-video">
+        <small class="campo__ayuda">Enlace de YouTube, Vimeo o un archivo .mp4. La vista previa se actualiza al escribir.</small>
         <?php if (isset($errores['video_url'])): ?><small class="campo__error"><?= e($errores['video_url']) ?></small><?php endif; ?>
     </div>
 
     <div class="campo <?= isset($errores['portada']) ? 'campo--invalido' : '' ?>">
         <label class="campo__etiqueta" for="portada">Imagen de portada</label>
-        <?php if (!empty($ficha['imagen_portada'])): ?>
-        <img src="../uploads/<?= e($ficha['imagen_portada']) ?>" alt="Portada actual"
-            style="max-width:260px;border-radius:6px;margin-bottom:8px">
-        <?php endif; ?>
-        <?php if (!empty($ficha['imagen_portada'])): ?>
+        <img id="vista-portada" class="car-vista-previa car-vista-previa--corta"
+            src="<?= !empty($ficha['imagen_portada']) ? '../uploads/' . e($ficha['imagen_portada']) : '' ?>"
+            alt="Vista previa de la portada" <?= empty($ficha['imagen_portada']) ? 'hidden' : '' ?>>
         <div class="fila" style="margin-bottom: var(--e3);">
+            <?php if (!empty($ficha['imagen_portada'])): ?>
             <button class="boton boton--peligro boton--pequeno" type="submit"
-                    name="quitar_portada" value="1">
+                    name="quitar_portada" value="1" formnovalidate
+                    data-confirmar="¿Borrar la imagen actual? Se elimina al instante y no se puede deshacer."
+                    data-confirmar-boton="Borrar imagen" data-confirmar-tipo="peligro">
                 Borrar imagen actual
             </button>
+            <?php endif; ?>
+            <button class="boton boton--secundario boton--pequeno" type="button"
+                    id="limpiar-portada" hidden>Quitar selección</button>
         </div>
-        <?php endif; ?>
         <input class="campo__control" type="file" id="portada" name="portada"
-            accept="image/jpeg,image/png,image/webp">
+            accept="image/jpeg,image/png,image/webp" data-vista="vista-portada" data-vista-limpiar="limpiar-portada">
         <small class="campo__ayuda">JPG, PNG o WebP. Máximo 2 MB.</small>
         <?php if (isset($errores['portada'])): ?><small class="campo__error"><?= e($errores['portada']) ?></small><?php endif; ?>
+    </div>
+    <div class="campo <?= isset($errores['fondo']) ? 'campo--invalido' : '' ?>">
+        <label class="campo__etiqueta" for="fondo">Imagen de fondo de la primera vista</label>
+        <img id="vista-fondo" class="car-vista-previa"
+            src="<?= !empty($ficha['imagen_fondo']) ? '../uploads/' . e($ficha['imagen_fondo']) : '' ?>"
+            alt="Vista previa del fondo" <?= empty($ficha['imagen_fondo']) ? 'hidden' : '' ?>>
+        <div class="fila" style="margin-bottom: var(--e3);">
+            <?php if (!empty($ficha['imagen_fondo'])): ?>
+            <button class="boton boton--peligro boton--pequeno" type="submit"
+                    name="quitar_fondo" value="1" formnovalidate
+                    data-confirmar="¿Borrar la imagen actual? Se elimina al instante y no se puede deshacer."
+                    data-confirmar-boton="Borrar imagen" data-confirmar-tipo="peligro">
+                Borrar imagen actual
+            </button>
+            <?php endif; ?>
+            <button class="boton boton--secundario boton--pequeno" type="button"
+                    id="limpiar-fondo" hidden>Quitar selección</button>
+        </div>
+        <input class="campo__control" type="file" id="fondo" name="fondo"
+            accept="image/jpeg,image/png,image/webp" data-vista="vista-fondo" data-vista-limpiar="limpiar-fondo">
+        <small class="campo__ayuda">Es el fondo del encabezado de la ficha. Se recomienda una foto horizontal. JPG, PNG o WebP. Máximo 3 MB.</small>
+        <?php if (isset($errores['fondo'])): ?><small class="campo__error"><?= e($errores['fondo']) ?></small><?php endif; ?>
     </div>
     </fieldset>
 
@@ -198,6 +274,9 @@ cabecera('Editar ficha', $carrera['area'] ?? '', '../css/modulo.css');
 
 </section>
 
+<script src="../js/confirmar.js"></script>
 <script src="../js/validar.js"></script>
+<script src="../js/vista-previa.js"></script>
+<script src="../js/vista-video.js"></script>
 <?php
 pie();

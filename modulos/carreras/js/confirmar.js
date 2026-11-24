@@ -14,6 +14,8 @@
   var texto = null;
   var botonOk = null;
   var pendiente = null;
+  var origenPendiente = null;   // el <form> o el <button> que trae los textos
+  var envioConfirmado = false;
 
   function crear() {
     dialogo = document.createElement('dialog');
@@ -35,9 +37,17 @@
     // Al cerrarse: si se confirmó, se envía el formulario que estaba pendiente.
     dialogo.addEventListener('close', function () {
       var formulario = pendiente;
+      var origen = origenPendiente;
       pendiente = null;
+      origenPendiente = null;
       if (formulario && dialogo.returnValue === 'confirmar') {
-        formulario.submit();
+        if (origen !== formulario) {
+          // Botón con data-confirmar: se reenvía conservando su name/value.
+          envioConfirmado = true;
+          formulario.requestSubmit(origen);
+        } else {
+          formulario.submit();
+        }
       }
     });
 
@@ -49,15 +59,16 @@
     });
   }
 
-  function abrir(formulario) {
+  function abrir(formulario, origen) {
     if (dialogo === null) {
       crear();
     }
     pendiente = formulario;
-    texto.textContent = formulario.getAttribute('data-confirmar');
-    botonOk.textContent = formulario.getAttribute('data-confirmar-boton') || 'Confirmar';
+    origenPendiente = origen;
+    texto.textContent = origen.getAttribute('data-confirmar');
+    botonOk.textContent = origen.getAttribute('data-confirmar-boton') || 'Confirmar';
     botonOk.className = 'boton car-dialogo__ok ' +
-      (formulario.getAttribute('data-confirmar-tipo') === 'peligro' ? 'boton--peligro' : 'boton--primario');
+      (origen.getAttribute('data-confirmar-tipo') === 'peligro' ? 'boton--peligro' : 'boton--primario');
 
     dialogo.returnValue = '';   // Esc no cambia returnValue: se reinicia en cada apertura
     dialogo.showModal();
@@ -65,19 +76,37 @@
 
   document.addEventListener('submit', function (ev) {
     var formulario = ev.target;
-    if (!formulario.matches || !formulario.matches('form[data-confirmar]')) {
+    if (!formulario.matches) {
+      return;
+    }
+
+    // Reenvío ya confirmado por la persona: se deja pasar.
+    if (envioConfirmado) {
+      envioConfirmado = false;
+      return;
+    }
+
+    // Los textos pueden venir del botón que se pulsó o del propio formulario.
+    var boton = ev.submitter;
+    var origen = null;
+    if (boton && boton.hasAttribute && boton.hasAttribute('data-confirmar')) {
+      origen = boton;
+    } else if (formulario.matches('form[data-confirmar]')) {
+      origen = formulario;
+    }
+    if (origen === null) {
       return;
     }
 
     // Navegadores sin <dialog>: se usa la confirmación básica como último recurso.
     if (typeof HTMLDialogElement !== 'function') {
-      if (!window.confirm(formulario.getAttribute('data-confirmar'))) {
+      if (!window.confirm(origen.getAttribute('data-confirmar'))) {
         ev.preventDefault();
       }
       return;
     }
 
     ev.preventDefault();
-    abrir(formulario);
+    abrir(formulario, origen);
   });
 })();
