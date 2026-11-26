@@ -219,7 +219,6 @@ cabecera('Revisar ficha', $ficha['area'], '../css/modulo.css');
                 <th scope="col">Clave</th>
                 <th scope="col">Materia</th>
                 <th scope="col">Horas totales</th>
-                <th scope="col">Horas por semana</th>
                 <th scope="col">Unidades</th>
             </tr>
             </thead>
@@ -256,7 +255,6 @@ cabecera('Revisar ficha', $ficha['area'], '../css/modulo.css');
                 <?php endif; ?>
                 </td>
                 <td><?= $m['horas_totales'] !== null ? (int)$m['horas_totales'] . ' h' : '—' ?></td>
-                <td><?= $m['horas_semana'] !== null ? (int)$m['horas_semana'] . ' h' : '—' ?></td>
                 <td><?= $us ? count($us) : ((int)$m['num_unidades'] ?: '—') ?></td>
             </tr>
             <?php endforeach; ?>

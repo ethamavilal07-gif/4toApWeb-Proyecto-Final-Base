@@ -40,7 +40,7 @@ cabecera('Carreras', '', 'css/modulo.css');
   <div class="disposicion-filtros">
 
     <!-- Filtros -->
-    <form class="panel" method="GET" action="">
+    <form class="panel" method="GET" action="" data-filtros>
       <h2>Filtrar</h2>
 
       <div class="campo">
@@ -85,7 +85,6 @@ cabecera('Carreras', '', 'css/modulo.css');
         </select>
       </div>
 
-      <button class="boton boton--primario boton--bloque" type="submit">Aplicar</button>
       <?php if ($hayFiltros): ?>
         <p class="centrado mt-4 sin-margen"><a href="?">Quitar filtros</a></p>
       <?php endif; ?>
@@ -114,27 +113,13 @@ cabecera('Carreras', '', 'css/modulo.css');
             <<?= $publicada ? 'a' : 'div' ?> class="tarjeta tarjeta--area <?= e(clase_area($f['area'])) ?>"
               <?= $publicada ? 'href="ficha.php?id=' . (int)$f['id'] . '"' : '' ?>>
 
-              <?php if ($publicada && $f['imagen_portada']): ?>
-                <img class="tarjeta__medio"
-                    src="uploads/<?= e($f['imagen_portada']) ?>"
-                    alt="Portada de <?= e($f['nombre']) ?>">
-              <?php endif; ?>
-
               <div class="tarjeta__cuerpo">
                 <h3 class="tarjeta__titulo"><?= e($f['nombre']) ?></h3>
-                <p class="leyenda">
-                  <?= e(CAR_AREAS[$f['area']] ?? $f['area']) ?> ·
-                  <?= e($f['modalidad']) ?> · <?= e($f['duracion']) ?>
-                </p>
-                <p>
-                  <?= $publicada
-                      ? e($f['resumen'])
-                      : 'La ficha de esta carrera estará disponible próximamente.' ?>
-                </p>
+                <p class="leyenda"><?= e($f['duracion']) ?> · <?= e($f['modalidad']) ?></p>
               </div>
 
               <div class="tarjeta__pie">
-                <span><?= e($f['clave']) ?></span>
+                <span class="insignia insignia--info"><?= e($f['clave']) ?></span>
                 <span><?= $publicada ? 'Ver ficha' : 'Próximamente' ?></span>
               </div>
             </<?= $publicada ? 'a' : 'div' ?>>
@@ -173,5 +158,6 @@ cabecera('Carreras', '', 'css/modulo.css');
   </div>
 </section>
 
+<script src="js/filtros.js"></script>
 <?php
 pie();

@@ -400,3 +400,8 @@
 .car-intro__lateral { margin-top: calc(-1 * var(--e5)); }
 .car-hero h1 { font-size: clamp(2.5rem, 6vw, 4.25rem); line-height: 1.05; }
 .car-titulo-centrado { text-align: center; }
+
+/* Bandeja · el botón Filtrar queda alineado con los campos y de su misma altura */
+.car-filtros .fila { align-items: flex-end; }
+.car-filtros .boton { align-self: flex-end; box-sizing: border-box; height: var(--car-alto-control, 3rem); }
+.car-filtros .campo__control { box-sizing: border-box; height: var(--car-alto-control, 3rem); }

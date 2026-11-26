@@ -32,7 +32,7 @@ cabecera('Bandeja de revisión', '', '../css/modulo.css');
 
   <?php pintar_mensajes(); ?>
 
-  <form class="panel mb-6" method="GET" action="">
+  <form class="panel mb-6 car-filtros" method="GET" action="">
     <div class="fila">
       <div class="campo sin-margen" style="flex:1 1 220px">
         <label class="campo__etiqueta" for="q">Buscar carrera</label>

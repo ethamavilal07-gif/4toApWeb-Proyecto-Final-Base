@@ -195,6 +195,22 @@ $estiloHero = $conFondo
 
 </section>
 
+<!-- ======================= Visita ======================= -->
+<section class="contenedor seccion">
+  <div class="panel">
+    <div class="fila fila--separada">
+      <div class="ancho-lectura">
+        <h2 class="sin-margen">¿Prefieres verlo en persona?</h2>
+        <p class="sin-margen">
+          Las visitas guiadas recorren laboratorios y talleres con estudiantes de cada
+          carrera. El cupo es limitado y el registro, gratuito.
+        </p>
+      </div>
+      <a class="boton boton--primario" href="<?= RUTA_BASE ?>/modulos/visitas/">Agendar visita</a>
+    </div>
+  </div>
+</section>
+
 <script src="js/carrusel.js"></script>
 <script src="js/plan.js"></script>
 <?php

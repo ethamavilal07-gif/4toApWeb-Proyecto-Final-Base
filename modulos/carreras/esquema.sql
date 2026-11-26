@@ -47,7 +47,6 @@ CREATE TABLE IF NOT EXISTS car_materias (
     clave_materia VARCHAR(20) NULL,
     nombre        VARCHAR(150) NOT NULL,
     horas_totales SMALLINT UNSIGNED NULL,
-    horas_semana  TINYINT UNSIGNED NULL,
     proposito     TEXT NULL,                   -- propósito de aprendizaje de la asignatura
     competencia   TEXT NULL,                   -- competencia a la que contribuye
     num_unidades  TINYINT UNSIGNED NOT NULL DEFAULT 0,  -- de 1 a 5

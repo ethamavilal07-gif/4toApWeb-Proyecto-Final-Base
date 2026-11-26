@@ -220,7 +220,7 @@ stream
  * Arma el PDF del plan de estudios.
  *
  * @param array $materias cada una con: cuatrimestre, clave_materia, nombre, horas_totales,
- *                        horas_semana, proposito, competencia y 'unidades' (numero, nombre,
+ *                        proposito, competencia y 'unidades' (numero, nombre,
  *                        horas_saber, horas_saber_hacer, horas_totales)
  */
 function car_plan_pdf(string $carrera, array $materias, string $nota = ''): string
@@ -269,7 +269,6 @@ function car_plan_pdf(string $carrera, array $materias, string $nota = ''): stri
 
             $meta = [];
             if (!empty($m['horas_totales'])) { $meta[] = 'Horas totales: ' . (int)$m['horas_totales']; }
-            if (!empty($m['horas_semana']))  { $meta[] = 'Horas por semana: ' . (int)$m['horas_semana']; }
             if (!empty($m['unidades']))      { $meta[] = 'Unidades: ' . count($m['unidades']); }
             if ($meta) {
                 $pdf->parrafo(implode('   ·   ', $meta), 9, $mx, $ancho, false, [0.4, 0.43, 0.52]);

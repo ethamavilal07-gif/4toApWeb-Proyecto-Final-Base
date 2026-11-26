@@ -35,11 +35,9 @@ $datos = [
     'clave_materia' => (string)($editando['clave_materia'] ?? ''),
     'nombre'        => (string)($editando['nombre']        ?? ''),
     'horas_totales' => (string)($editando['horas_totales'] ?? ''),
-    'horas_semana'  => (string)($editando['horas_semana']  ?? ''),
     'proposito'     => (string)($editando['proposito']     ?? ''),
     'competencia'   => (string)($editando['competencia']   ?? ''),
     'num_unidades'  => (string)(($editando['num_unidades'] ?? 0) ?: ''),
-    'orden'         => (string)($editando['orden']         ?? '1'),
 ];
 
 // Hasta 5 unidades. Se pintan siempre las 5 y el JS muestra solo las elegidas.
@@ -115,19 +113,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    $orden = filter_var($datos['orden'] === '' ? '1' : $datos['orden'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 99]]);
-    if ($orden === false) {
-        $errores['orden'] = 'El orden debe ser un número entre 1 y 99.';
-    }
-
-    $semana = null;
-    if ($datos['horas_semana'] !== '') {
-        $semana = filter_var($datos['horas_semana'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 99]]);
-        if ($semana === false) {
-            $errores['horas_semana'] = 'Las horas por semana deben ser un número entre 1 y 99.';
-        }
-    }
-
     if (mb_strlen($datos['proposito']) > 1000) {
         $errores['proposito'] = 'Máximo 1000 caracteres.';
     }
@@ -179,11 +164,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'clave_materia' => $datos['clave_materia'] !== '' ? $datos['clave_materia'] : null,
             'nombre'        => $datos['nombre'],
             'horas_totales' => $horas,
-            'horas_semana'  => $semana,
             'proposito'     => $datos['proposito'] !== '' ? $datos['proposito'] : null,
             'competencia'   => $datos['competencia'] !== '' ? $datos['competencia'] : null,
             'num_unidades'  => $numUnidades,
-            'orden'         => $orden,
         ];
 
         if ($materiaId === null) {
@@ -266,20 +249,6 @@ cabecera('Materias', $ficha['area'], '../css/modulo.css');
         <input class="campo__control" type="number" id="horas_totales" name="horas_totales"
             min="1" max="999" value="<?= e($datos['horas_totales']) ?>">
         <?php if (isset($errores['horas_totales'])): ?><small class="campo__error"><?= e($errores['horas_totales']) ?></small><?php endif; ?>
-    </div>
-
-    <div class="campo <?= isset($errores['horas_semana']) ? 'campo--invalido' : '' ?>" style="flex:0 1 160px">
-        <label class="campo__etiqueta" for="horas_semana">Horas por semana</label>
-        <input class="campo__control" type="number" id="horas_semana" name="horas_semana"
-            min="1" max="99" value="<?= e($datos['horas_semana']) ?>">
-        <?php if (isset($errores['horas_semana'])): ?><small class="campo__error"><?= e($errores['horas_semana']) ?></small><?php endif; ?>
-    </div>
-
-    <div class="campo <?= isset($errores['orden']) ? 'campo--invalido' : '' ?>" style="flex:0 1 120px">
-        <label class="campo__etiqueta" for="orden">Orden</label>
-        <input class="campo__control" type="number" id="orden" name="orden"
-            min="1" max="99" value="<?= e($datos['orden']) ?>">
-        <?php if (isset($errores['orden'])): ?><small class="campo__error"><?= e($errores['orden']) ?></small><?php endif; ?>
     </div>
     </div>
 
@@ -365,7 +334,7 @@ cabecera('Materias', $ficha['area'], '../css/modulo.css');
         <caption><?= count($materias) ?> materia<?= count($materias) === 1 ? '' : 's' ?></caption>
         <thead>
         <tr><th scope="col">Periodo</th><th scope="col">Clave</th><th scope="col">Nombre</th>
-            <th scope="col">Horas</th><th scope="col">Hrs/sem</th><th scope="col">Unidades</th><th scope="col">Acciones</th></tr>
+            <th scope="col">Horas</th><th scope="col">Unidades</th><th scope="col">Acciones</th></tr>
         </thead>
         <tbody>
         <?php foreach ($materias as $m): ?>
@@ -374,7 +343,6 @@ cabecera('Materias', $ficha['area'], '../css/modulo.css');
             <td><?= e($m['clave_materia']) ?></td>
             <td><?= e($m['nombre']) ?></td>
             <td><?= $m['horas_totales'] !== null ? (int)$m['horas_totales'] : '—' ?></td>
-            <td><?= $m['horas_semana'] !== null ? (int)$m['horas_semana'] : '—' ?></td>
             <td><?= (int)$m['num_unidades'] > 0 ? (int)$m['num_unidades'] : '—' ?></td>
             <td>
             <?php if ($editable): ?>

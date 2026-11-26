@@ -12,7 +12,7 @@
 
 declare(strict_types=1);
 
-const CAR_POR_PAGINA = 9;
+const CAR_POR_PAGINA = 100;   // todas las carreras caben en una sola página (sin paginado)
 
 const CAR_ESTADOS = [
     'borrador'  => 'Borrador',
@@ -639,6 +639,14 @@ function car_unidades_guardar(int $materiaId, array $unidades): void
     }
 }
 
+/** Siguiente número de orden dentro de un cuatrimestre: las materias van en el orden en que se guardan. */
+function car_siguiente_orden(int $fichaId, int $cuatrimestre): int
+{
+    $con = bd()->prepare('SELECT COALESCE(MAX(orden), 0) + 1 FROM car_materias WHERE ficha_id = ? AND cuatrimestre = ?');
+    $con->execute([$fichaId, $cuatrimestre]);
+    return min(255, (int)$con->fetchColumn());
+}
+
 /** Crea la materia y sus unidades en una sola transacción. */
 function car_materia_crear(int $fichaId, array $d, array $unidades = []): int
 {
@@ -647,14 +655,14 @@ function car_materia_crear(int $fichaId, array $d, array $unidades = []): int
     try {
         $con = $pdo->prepare(
             'INSERT INTO car_materias
-                (ficha_id, cuatrimestre, clave_materia, nombre, horas_totales, horas_semana,
+                (ficha_id, cuatrimestre, clave_materia, nombre, horas_totales,
                 proposito, competencia, num_unidades, orden)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
         );
         $con->execute([
             $fichaId, $d['cuatrimestre'], $d['clave_materia'], $d['nombre'],
-            $d['horas_totales'], $d['horas_semana'], $d['proposito'], $d['competencia'],
-            $d['num_unidades'], $d['orden'],
+            $d['horas_totales'], $d['proposito'], $d['competencia'],
+            $d['num_unidades'], car_siguiente_orden($fichaId, (int)$d['cuatrimestre']),
         ]);
         $id = (int)$pdo->lastInsertId();
         car_unidades_guardar($id, $unidades);
@@ -672,17 +680,27 @@ function car_materia_actualizar(int $id, array $d, array $unidades = []): void
     $pdo = bd();
     $pdo->beginTransaction();
     try {
+        $previa = $pdo->prepare('SELECT ficha_id, cuatrimestre FROM car_materias WHERE id = ?');
+        $previa->execute([$id]);
+        $antes = $previa->fetch();
+
         $con = $pdo->prepare(
             'UPDATE car_materias
-                SET cuatrimestre = ?, clave_materia = ?, nombre = ?, horas_totales = ?, horas_semana = ?,
-                    proposito = ?, competencia = ?, num_unidades = ?, orden = ?
+                SET cuatrimestre = ?, clave_materia = ?, nombre = ?, horas_totales = ?,
+                    proposito = ?, competencia = ?, num_unidades = ?
             WHERE id = ?'
         );
         $con->execute([
             $d['cuatrimestre'], $d['clave_materia'], $d['nombre'],
-            $d['horas_totales'], $d['horas_semana'], $d['proposito'], $d['competencia'],
-            $d['num_unidades'], $d['orden'], $id,
+            $d['horas_totales'], $d['proposito'], $d['competencia'],
+            $d['num_unidades'], $id,
         ]);
+
+        // Si la materia cambia de cuatrimestre, queda al final del nuevo.
+        if ($antes && (int)$antes['cuatrimestre'] !== (int)$d['cuatrimestre']) {
+            $pdo->prepare('UPDATE car_materias SET orden = ? WHERE id = ?')
+                ->execute([car_siguiente_orden((int)$antes['ficha_id'], (int)$d['cuatrimestre']), $id]);
+        }
         car_unidades_guardar($id, $unidades);
         $pdo->commit();
     } catch (Throwable $e) {
