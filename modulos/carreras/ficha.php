@@ -9,17 +9,18 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../../nucleo/comun.php';
 require_once __DIR__ . '/includes/consultas.php';
+require_once __DIR__ . '/includes/sin_ficha.php';
 
 $carreraId = entero(get('id'));
 if ($carreraId === null) {
-    no_encontrado('Carrera no válida.');
+    car_pagina_sin_ficha(null);
 }
 
 // Si la carrera nunca se publicó, el público recibe 404:
 // no se revela que existe un borrador.
 $publicada = car_ficha_publica($carreraId);
 if ($publicada === null) {
-    no_encontrado('Esta carrera no tiene ficha publicada.');
+    car_pagina_sin_ficha(carrera($carreraId));   // null si la carrera no existe
 }
 
 $ficha          = $publicada['ficha'];

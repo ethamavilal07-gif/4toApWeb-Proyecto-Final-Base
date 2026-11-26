@@ -552,3 +552,35 @@
     to   { opacity: 1; transform: none; }
 }
 @media (prefers-reduced-motion: reduce) { .car-visor[open] { animation: none; } }
+
+/* Carrera sin ficha publicada */
+.car-sinficha {
+    max-width: 44rem;
+    margin: 0 auto var(--e7);
+    padding: var(--e7) var(--e5);
+    text-align: center;
+    background: var(--blanco);
+    border: 1px solid var(--borde);
+    border-top: 4px solid var(--area);
+    border-radius: var(--radio-md);
+    box-shadow: var(--sombra-2);
+}
+.car-sinficha__icono {
+    display: grid;
+    place-items: center;
+    width: 5rem;
+    height: 5rem;
+    margin: 0 auto var(--e4);
+    border-radius: var(--radio-pastilla);
+    background: var(--area-suave);
+    color: var(--area);
+}
+.car-sinficha h2 { margin-bottom: var(--e3); }
+.car-sinficha p { margin-inline: auto; max-width: 34rem; }
+.car-sinficha__acciones {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--e3);
+    margin-top: var(--e5);
+}
