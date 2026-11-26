@@ -405,3 +405,150 @@
 .car-filtros .fila { align-items: flex-end; }
 .car-filtros .boton { align-self: flex-end; box-sizing: border-box; height: var(--car-alto-control, 3rem); }
 .car-filtros .campo__control { box-sizing: border-box; height: var(--car-alto-control, 3rem); }
+
+/* Estadía (prácticas) */
+.car-plan__estadia { display: grid; gap: var(--e3); justify-items: start; }
+.car-plan__estadia p { margin: 0; }
+.car-plan__estadia-etiqueta {
+    padding: 0.2rem var(--e4);
+    border-radius: var(--radio-pastilla);
+    background: var(--area);
+    color: var(--blanco);
+    font-weight: 600;
+}
+.car-estadias-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--e3); }
+.car-estadias-lista li { display: flex; align-items: center; justify-content: space-between; gap: var(--e3); flex-wrap: wrap; }
+
+/* Casilla personalizada */
+.car-checkbox {
+    display: inline-block;
+    position: relative;
+    padding-left: 35px;
+    min-height: 25px;
+    margin-bottom: 12px;
+    line-height: 25px;
+    font-weight: 600;
+    cursor: pointer;
+    user-select: none;
+}
+.car-checkbox__input {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+    height: 0;
+    width: 0;
+}
+.car-checkbox__marca {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 25px;
+    width: 25px;
+    background-color: #eee;
+    border-radius: 4px;
+    transition: background-color 0.3s;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+.car-checkbox__marca::after {
+    content: "";
+    position: absolute;
+    display: none;
+    left: 9px;
+    top: 5px;
+    width: 5px;
+    height: 10px;
+    border: solid white;
+    border-width: 0 3px 3px 0;
+    transform: rotate(45deg);
+}
+.car-checkbox__input:checked ~ .car-checkbox__marca {
+    background-color: #2196F3;
+    box-shadow: 0 3px 7px rgba(33, 150, 243, 0.3);
+}
+.car-checkbox__input:checked ~ .car-checkbox__marca::after {
+    display: block;
+    animation: car-check-anim 0.2s forwards;
+}
+.car-checkbox__input:focus-visible ~ .car-checkbox__marca {
+    outline: 3px solid var(--marca-500);
+    outline-offset: 2px;
+}
+@keyframes car-check-anim {
+    0%   { height: 0; }
+    100% { height: 10px; }
+}
+
+/* Instalaciones ampliables */
+.car-instalacion { cursor: zoom-in; }
+.car-instalacion:hover,
+.car-instalacion:focus-visible { box-shadow: var(--sombra-3); border-color: var(--area); }
+.car-instalacion:focus-visible { outline: 3px solid var(--marca-500); outline-offset: 2px; }
+.car-instalacion__medio { position: relative; }
+.car-instalacion__medio video { display: block; }
+.car-instalacion__play {
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    width: 3.5rem;
+    height: 3.5rem;
+    display: grid;
+    place-items: center;
+    border-radius: var(--radio-pastilla);
+    background: color-mix(in srgb, var(--marca-900) 70%, transparent);
+    color: var(--blanco);
+    font-size: 1.25rem;
+    padding-left: 0.2rem;
+    pointer-events: none;
+}
+
+/* Visor: la instalación se amplía y el resto de la página se desenfoca. */
+.car-visor {
+    width: min(64rem, 92vw);
+    max-height: 92vh;
+    padding: 0;
+    border: 0;
+    border-radius: var(--radio-md);
+    background: var(--blanco);
+    color: var(--texto);
+    box-shadow: var(--sombra-3);
+    overflow: auto;
+}
+.car-visor[open] { animation: car-visor-entra 0.22s ease; }
+.car-visor::backdrop {
+    background: color-mix(in srgb, var(--marca-900) 55%, transparent);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+.car-visor__medio { background: var(--marca-900); }
+.car-visor__medio img,
+.car-visor__medio video {
+    display: block;
+    width: 100%;
+    max-height: 72vh;
+    object-fit: contain;
+}
+.car-visor__texto { padding: var(--e4) var(--e5) var(--e5); }
+.car-visor__texto h3 { margin: 0 0 var(--e2); }
+.car-visor__texto p { margin: 0; }
+.car-visor__cerrar {
+    position: absolute;
+    top: var(--e3);
+    right: var(--e3);
+    z-index: 2;
+    width: 2.5rem;
+    height: 2.5rem;
+    border: 0;
+    border-radius: var(--radio-pastilla);
+    background: color-mix(in srgb, var(--marca-900) 75%, transparent);
+    color: var(--blanco);
+    font-size: 1.5rem;
+    line-height: 1;
+    cursor: pointer;
+}
+.car-visor__cerrar:hover { background: var(--marca-900); }
+.car-visor__cerrar:focus-visible { outline: 3px solid var(--blanco); outline-offset: 2px; }
+@keyframes car-visor-entra {
+    from { opacity: 0; transform: scale(0.96); }
+    to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) { .car-visor[open] { animation: none; } }

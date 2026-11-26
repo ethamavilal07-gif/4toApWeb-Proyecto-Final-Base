@@ -168,6 +168,8 @@ function car_ficha_publica(int $carreraId): ?array
         return null;
     }
 
+    $contenido['estadias'] = $contenido['estadias'] ?? [];
+
     $contenido['ficha'] = array_merge($contenido['ficha'], [
         'id'           => (int)$fila['ficha_id'],
         'nombre'       => $fila['nombre'],
@@ -200,6 +202,7 @@ function car_archivos_de_contenido(array $c): array
     $imagenes = [$c['ficha']['imagen_portada'] ?? null, $c['ficha']['imagen_fondo'] ?? null];
     foreach ($c['instalaciones'] ?? [] as $i) {
         $imagenes[] = $i['imagen_servidor'] ?? null;
+        $imagenes[] = $i['video_servidor'] ?? null;
     }
     foreach ($c['galeria'] ?? [] as $g) {
         $imagenes[] = $g['imagen_servidor'] ?? null;
@@ -244,6 +247,7 @@ function car_generar_publicacion(int $fichaId, ?int $usuarioId): array
             'imagen_fondo'   => $ficha['imagen_fondo'] ?? null,
         ],
         'materias'      => $materias,
+        'estadias'      => car_estadias_de_ficha($fichaId),
         'instalaciones' => car_instalaciones_de_ficha($fichaId),
         'galeria'       => car_galeria_de_ficha($fichaId),
         'documentos'    => car_documentos_de_ficha($fichaId),
@@ -639,6 +643,41 @@ function car_unidades_guardar(int $materiaId, array $unidades): void
     }
 }
 
+/** Cuatrimestres de estadía de una ficha (números, de menor a mayor). */
+function car_estadias_de_ficha(int $fichaId): array
+{
+    $con = bd()->prepare('SELECT cuatrimestre FROM car_estadias WHERE ficha_id = ? ORDER BY cuatrimestre');
+    $con->execute([$fichaId]);
+    return array_map('intval', $con->fetchAll(PDO::FETCH_COLUMN));
+}
+
+function car_es_estadia(int $fichaId, int $cuatrimestre): bool
+{
+    $con = bd()->prepare('SELECT COUNT(*) FROM car_estadias WHERE ficha_id = ? AND cuatrimestre = ?');
+    $con->execute([$fichaId, $cuatrimestre]);
+    return (int)$con->fetchColumn() > 0;
+}
+
+/** Cuántas materias tiene un cuatrimestre. */
+function car_contar_materias(int $fichaId, int $cuatrimestre): int
+{
+    $con = bd()->prepare('SELECT COUNT(*) FROM car_materias WHERE ficha_id = ? AND cuatrimestre = ?');
+    $con->execute([$fichaId, $cuatrimestre]);
+    return (int)$con->fetchColumn();
+}
+
+function car_estadia_marcar(int $fichaId, int $cuatrimestre): void
+{
+    $con = bd()->prepare('INSERT IGNORE INTO car_estadias (ficha_id, cuatrimestre) VALUES (?, ?)');
+    $con->execute([$fichaId, $cuatrimestre]);
+}
+
+function car_estadia_quitar(int $fichaId, int $cuatrimestre): void
+{
+    $con = bd()->prepare('DELETE FROM car_estadias WHERE ficha_id = ? AND cuatrimestre = ?');
+    $con->execute([$fichaId, $cuatrimestre]);
+}
+
 /** Siguiente número de orden dentro de un cuatrimestre: las materias van en el orden en que se guardan. */
 function car_siguiente_orden(int $fichaId, int $cuatrimestre): int
 {
@@ -736,10 +775,14 @@ function car_instalacion_obtener(int $id): ?array
 function car_instalacion_crear(int $fichaId, array $d): int
 {
     $con = bd()->prepare(
-        'INSERT INTO car_instalaciones (ficha_id, nombre, descripcion, imagen_servidor, orden)
-        VALUES (?, ?, ?, ?, ?)'
+        'INSERT INTO car_instalaciones (ficha_id, nombre, descripcion, imagen_servidor, video_servidor, orden)
+        VALUES (?, ?, ?, ?, ?, ?)'
     );
-    $con->execute([$fichaId, $d['nombre'], $d['descripcion'], $d['imagen_servidor'], $d['orden']]);
+    // El orden es automático: cada instalación nueva queda al final.
+    $sig = bd()->prepare('SELECT COALESCE(MAX(orden), 0) + 1 FROM car_instalaciones WHERE ficha_id = ?');
+    $sig->execute([$fichaId]);
+    $orden = min(255, (int)$sig->fetchColumn());
+    $con->execute([$fichaId, $d['nombre'], $d['descripcion'], $d['imagen_servidor'], $d['video_servidor'] ?? null, $orden]);
     return (int)bd()->lastInsertId();
 }
 
@@ -747,10 +790,10 @@ function car_instalacion_actualizar(int $id, array $d): void
 {
     $con = bd()->prepare(
         'UPDATE car_instalaciones
-            SET nombre = ?, descripcion = ?, imagen_servidor = ?, orden = ?
+            SET nombre = ?, descripcion = ?, imagen_servidor = ?, video_servidor = ?
         WHERE id = ?'
     );
-    $con->execute([$d['nombre'], $d['descripcion'], $d['imagen_servidor'], $d['orden'], $id]);
+    $con->execute([$d['nombre'], $d['descripcion'], $d['imagen_servidor'], $d['video_servidor'] ?? null, $id]);
 }
 
 function car_instalacion_eliminar(int $id): void

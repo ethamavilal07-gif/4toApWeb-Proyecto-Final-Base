@@ -56,6 +56,7 @@ if ($editando) {
     }
 }
 $errores = [];
+$esEstadia = false;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
@@ -75,6 +76,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
+    // Quitar la marca de estadía de un cuatrimestre.
+    if (post('accion') === 'quitar_estadia') {
+        $q = filter_var(post('cuatrimestre'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 12]]);
+        if ($q !== false) {
+            car_estadia_quitar($fichaId, $q);
+            mensaje('exito', "El cuatrimestre $q ya no es de estadía.");
+        }
+        redirigir($volver);
+    }
+
+    $esEstadia = $materiaId === null && post('es_estadia') === '1';
+
     foreach ($datos as $campo => $_) {
         $datos[$campo] = post($campo);
     }
@@ -89,95 +102,113 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    /* --- Validación en el servidor --- */
-    $cuatri = filter_var($datos['cuatrimestre'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 12]]);
-    if ($cuatri === false) {
-        $errores['cuatrimestre'] = 'Indica un cuatrimestre entre 1 y 12.';
-    }
-
-    if ($datos['nombre'] === '') {
-        $errores['nombre'] = 'El nombre es obligatorio.';
-    } elseif (mb_strlen($datos['nombre']) > 150) {
-        $errores['nombre'] = 'Máximo 150 caracteres.';
-    }
-
-    if (mb_strlen($datos['clave_materia']) > 20) {
-        $errores['clave_materia'] = 'Máximo 20 caracteres.';
-    }
-
-    $horas = null;
-    if ($datos['horas_totales'] !== '') {
-        $horas = filter_var($datos['horas_totales'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 999]]);
-        if ($horas === false) {
-            $errores['horas_totales'] = 'Las horas deben ser un número entre 1 y 999.';
+    if ($esEstadia) {
+        // Estadía (prácticas): el cuatrimestre se marca y no se capturan materias.
+        $cuatri = filter_var($datos['cuatrimestre'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 12]]);
+        if ($cuatri === false) {
+            $errores['cuatrimestre'] = 'Indica un cuatrimestre entre 1 y 12.';
+        } elseif (car_contar_materias($fichaId, $cuatri) > 0) {
+            $errores['cuatrimestre'] = "El cuatrimestre $cuatri ya tiene materias. Elimínalas antes de marcarlo como estadía.";
         }
-    }
-
-    if (mb_strlen($datos['proposito']) > 1000) {
-        $errores['proposito'] = 'Máximo 1000 caracteres.';
-    }
-
-    if (mb_strlen($datos['competencia']) > 1000) {
-        $errores['competencia'] = 'Máximo 1000 caracteres.';
-    }
-
-    // Cantidad de unidades: de 1 a 5. Solo se validan y guardan esas.
-    $numUnidades = filter_var($datos['num_unidades'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => MAX_UNIDADES]]);
-    $unidadesFila = [];
-    if ($numUnidades === false) {
-        $errores['num_unidades'] = 'Elige de 1 a ' . MAX_UNIDADES . ' unidades.';
+        if (!$errores) {
+            car_estadia_marcar($fichaId, $cuatri);
+            mensaje('exito', "El cuatrimestre $cuatri quedó marcado como estadía.");
+            redirigir($volver);
+        }
     } else {
-        for ($i = 1; $i <= $numUnidades; $i++) {
-            $u = $unidades[$i];
 
-            if ($u['nombre'] === '') {
-                $errores["u{$i}_nombre"] = 'El nombre de la unidad es obligatorio.';
-            } elseif (mb_strlen($u['nombre']) > 150) {
-                $errores["u{$i}_nombre"] = 'Máximo 150 caracteres.';
-            }
+        /* --- Validación en el servidor --- */
+        $cuatri = filter_var($datos['cuatrimestre'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 12]]);
+        if ($cuatri === false) {
+            $errores['cuatrimestre'] = 'Indica un cuatrimestre entre 1 y 12.';
+        } elseif (car_es_estadia($fichaId, $cuatri)) {
+            $errores['cuatrimestre'] = "El cuatrimestre $cuatri es de estadía: no se capturan materias. Quita la estadía para agregarlas.";
+        }
 
-            $saber = filter_var($u['horas_saber'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 0, 'max_range' => 999]]);
-            if ($saber === false) {
-                $errores["u{$i}_saber"] = 'Número entre 0 y 999.';
-            }
-            $hacer = filter_var($u['horas_saber_hacer'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 0, 'max_range' => 999]]);
-            if ($hacer === false) {
-                $errores["u{$i}_hacer"] = 'Número entre 0 y 999.';
-            }
+        if ($datos['nombre'] === '') {
+            $errores['nombre'] = 'El nombre es obligatorio.';
+        } elseif (mb_strlen($datos['nombre']) > 150) {
+            $errores['nombre'] = 'Máximo 150 caracteres.';
+        }
 
-            if ($saber !== false && $hacer !== false) {
-                $unidadesFila[] = [
-                    'numero'            => $i,
-                    'nombre'            => $u['nombre'],
-                    'horas_saber'       => $saber,
-                    'horas_saber_hacer' => $hacer,
-                    'horas_totales'     => $saber + $hacer,   // se calcula aquí, no se confía en el navegador
-                ];
+        if (mb_strlen($datos['clave_materia']) > 20) {
+            $errores['clave_materia'] = 'Máximo 20 caracteres.';
+        }
+
+        $horas = null;
+        if ($datos['horas_totales'] !== '') {
+            $horas = filter_var($datos['horas_totales'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 999]]);
+            if ($horas === false) {
+                $errores['horas_totales'] = 'Las horas deben ser un número entre 1 y 999.';
             }
         }
-    }
 
-    /* --- Guardar --- */
-    if (!$errores) {
-        $fila = [
-            'cuatrimestre'  => $cuatri,
-            'clave_materia' => $datos['clave_materia'] !== '' ? $datos['clave_materia'] : null,
-            'nombre'        => $datos['nombre'],
-            'horas_totales' => $horas,
-            'proposito'     => $datos['proposito'] !== '' ? $datos['proposito'] : null,
-            'competencia'   => $datos['competencia'] !== '' ? $datos['competencia'] : null,
-            'num_unidades'  => $numUnidades,
-        ];
+        if (mb_strlen($datos['proposito']) > 1000) {
+            $errores['proposito'] = 'Máximo 1000 caracteres.';
+        }
 
-        if ($materiaId === null) {
-            car_materia_crear($fichaId, $fila, $unidadesFila);
-            mensaje('exito', 'Materia agregada.');
+        if (mb_strlen($datos['competencia']) > 1000) {
+            $errores['competencia'] = 'Máximo 1000 caracteres.';
+        }
+
+        // Cantidad de unidades: de 1 a 5. Solo se validan y guardan esas.
+        $numUnidades = filter_var($datos['num_unidades'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => MAX_UNIDADES]]);
+        $unidadesFila = [];
+        if ($numUnidades === false) {
+            $errores['num_unidades'] = 'Elige de 1 a ' . MAX_UNIDADES . ' unidades.';
         } else {
-            car_materia_actualizar($materiaId, $fila, $unidadesFila);
-            mensaje('exito', 'Materia actualizada.');
+            for ($i = 1; $i <= $numUnidades; $i++) {
+                $u = $unidades[$i];
+
+                if ($u['nombre'] === '') {
+                    $errores["u{$i}_nombre"] = 'El nombre de la unidad es obligatorio.';
+                } elseif (mb_strlen($u['nombre']) > 150) {
+                    $errores["u{$i}_nombre"] = 'Máximo 150 caracteres.';
+                }
+
+                $saber = filter_var($u['horas_saber'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 0, 'max_range' => 999]]);
+                if ($saber === false) {
+                    $errores["u{$i}_saber"] = 'Número entre 0 y 999.';
+                }
+                $hacer = filter_var($u['horas_saber_hacer'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 0, 'max_range' => 999]]);
+                if ($hacer === false) {
+                    $errores["u{$i}_hacer"] = 'Número entre 0 y 999.';
+                }
+
+                if ($saber !== false && $hacer !== false) {
+                    $unidadesFila[] = [
+                        'numero'            => $i,
+                        'nombre'            => $u['nombre'],
+                        'horas_saber'       => $saber,
+                        'horas_saber_hacer' => $hacer,
+                        'horas_totales'     => $saber + $hacer,   // se calcula aquí, no se confía en el navegador
+                    ];
+                }
+            }
         }
 
-        redirigir($volver);   // POST-Redirect-GET
+        /* --- Guardar --- */
+        if (!$errores) {
+            $fila = [
+                'cuatrimestre'  => $cuatri,
+                'clave_materia' => $datos['clave_materia'] !== '' ? $datos['clave_materia'] : null,
+                'nombre'        => $datos['nombre'],
+                'horas_totales' => $horas,
+                'proposito'     => $datos['proposito'] !== '' ? $datos['proposito'] : null,
+                'competencia'   => $datos['competencia'] !== '' ? $datos['competencia'] : null,
+                'num_unidades'  => $numUnidades,
+            ];
+
+            if ($materiaId === null) {
+                car_materia_crear($fichaId, $fila, $unidadesFila);
+                mensaje('exito', 'Materia agregada.');
+            } else {
+                car_materia_actualizar($materiaId, $fila, $unidadesFila);
+                mensaje('exito', 'Materia actualizada.');
+            }
+
+            redirigir($volver);   // POST-Redirect-GET
+        }
     }
 
     // Con errores se vuelve a pintar el formulario, conservando lo escrito.
@@ -187,6 +218,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $materias = car_materias_de_ficha($fichaId);
+$estadias = car_estadias_de_ficha($fichaId);
 
 cabecera('Materias', $ficha['area'], '../css/modulo.css');
 ?>
@@ -228,6 +260,19 @@ cabecera('Materias', $ficha['area'], '../css/modulo.css');
         <?php if (isset($errores['cuatrimestre'])): ?><small class="campo__error"><?= e($errores['cuatrimestre']) ?></small><?php endif; ?>
     </div>
 
+    <?php if (!$editando): ?>
+    <div class="campo" style="flex:1 1 280px; align-self:flex-end">
+        <label class="car-checkbox">
+        <input class="car-checkbox__input" type="checkbox" id="es_estadia" name="es_estadia" value="1" <?= $esEstadia ? 'checked' : '' ?>>
+        <span class="car-checkbox__marca"></span>
+        Este cuatrimestre es de estadía (prácticas, sin materias)
+        </label>
+    </div>
+    <?php endif; ?>
+    </div>
+
+    <div data-materia-campos>
+    <div class="fila">
     <div class="campo <?= isset($errores['clave_materia']) ? 'campo--invalido' : '' ?>" style="flex:0 1 160px">
         <label class="campo__etiqueta" for="clave_materia">Clave</label>
         <input class="campo__control" type="text" id="clave_materia" name="clave_materia"
@@ -316,14 +361,40 @@ cabecera('Materias', $ficha['area'], '../css/modulo.css');
     </div>
     <?php endfor; ?>
     </fieldset>
+    </div>
 
     <div class="fila">
-        <button class="boton boton--primario" type="submit"><?= $editando ? 'Guardar cambios' : 'Agregar' ?></button>
+        <button class="boton boton--primario" type="submit" id="boton-guardar"
+                data-texto="<?= $editando ? 'Guardar cambios' : 'Agregar' ?>"><?= $editando ? 'Guardar cambios' : 'Agregar' ?></button>
         <?php if ($editando): ?><a class="boton boton--secundario" href="<?= e($volver) ?>">Cancelar</a><?php endif; ?>
     </div>
     </form>
     <?php else: ?>
     <div class="alerta alerta--info"><p>La ficha no está en borrador: solo puedes consultar las materias.</p></div>
+    <?php endif; ?>
+
+    <?php if ($estadias): ?>
+    <div class="panel mb-6">
+    <h2>Cuatrimestres de estadía</h2>
+    <p class="leyenda">Prácticas durante el cuatrimestre: no llevan materias.</p>
+    <ul class="car-estadias-lista">
+    <?php foreach ($estadias as $q): ?>
+        <li>
+        <strong><?= (int)$q ?>.º cuatrimestre</strong> · Estadía
+        <?php if ($editable): ?>
+        <form method="POST" action=""
+                data-confirmar="¿Quitar la estadía del cuatrimestre <?= (int)$q ?>? Podrás capturar materias en él."
+                data-confirmar-boton="Quitar estadía" data-confirmar-tipo="peligro">
+            <?= campo_token() ?>
+            <input type="hidden" name="accion" value="quitar_estadia">
+            <input type="hidden" name="cuatrimestre" value="<?= (int)$q ?>">
+            <button class="boton boton--peligro boton--pequeno" type="submit">Quitar estadía</button>
+        </form>
+        <?php endif; ?>
+        </li>
+    <?php endforeach; ?>
+    </ul>
+    </div>
     <?php endif; ?>
 
     <?php if (!$materias): ?>
@@ -368,6 +439,7 @@ cabecera('Materias', $ficha['area'], '../css/modulo.css');
 </section>
 <script src="../js/confirmar.js"></script>
 <script src="../js/unidades.js"></script>
+<script src="../js/estadia.js"></script>
 <script src="../js/validar.js"></script>
 <?php
 pie();

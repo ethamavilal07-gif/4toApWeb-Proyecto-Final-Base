@@ -27,4 +27,4 @@ foreach ($materias as &$m) {
 unset($m);
 
 $nombre = (string)$publicada['ficha']['nombre'];
-car_plan_pdf_entregar(car_plan_pdf($nombre, $materias), car_plan_pdf_nombre($nombre));
+car_plan_pdf_entregar(car_plan_pdf($nombre, $materias, '', $publicada['estadias'] ?? []), car_plan_pdf_nombre($nombre));

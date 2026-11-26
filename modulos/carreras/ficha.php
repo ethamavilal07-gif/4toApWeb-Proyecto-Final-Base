@@ -33,6 +33,12 @@ $porCuatri = [];
 foreach ($materias as $m) {
     $porCuatri[(int)$m['cuatrimestre']][] = $m;
 }
+// Los cuatrimestres de estadía (prácticas) no llevan materias, pero aparecen en el plan.
+$estadias = array_map('intval', $publicada['estadias'] ?? []);
+foreach ($estadias as $q) {
+    $porCuatri[$q] = $porCuatri[$q] ?? [];
+}
+ksort($porCuatri);
 
 // El video se incrusta si es de YouTube, Vimeo o un archivo de video directo;
 // si es de otro sitio se deja un enlace (solo si empieza con http:// o https://).
@@ -80,26 +86,9 @@ $estiloHero = $conFondo
     </div>
 </div>
 
-<?php if ($videoEmbed !== null): ?>
-<div class="car-bloque car-bloque--centrado">
-    <h2>Video de la carrera</h2>
-    <div class="car-video">
-    <?php if ($videoEmbed['tipo'] === 'iframe'): ?>
-        <iframe src="<?= e($videoEmbed['src']) ?>" title="Video de <?= e($ficha['nombre']) ?>"
-                loading="lazy" allowfullscreen
-                allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"
-                referrerpolicy="strict-origin-when-cross-origin"></iframe>
-    <?php else: ?>
-        <video src="<?= e($videoEmbed['src']) ?>" controls preload="metadata"
-               title="Video de <?= e($ficha['nombre']) ?>"></video>
-    <?php endif; ?>
-    </div>
-</div>
-<?php endif; ?>
-
 <?php if ($galeria): ?>
 <div class="car-bloque">
-    <h2>Conoce la carrera</h2>
+    <h2 class="car-titulo-centrado">Conoce la carrera</h2>
     <div class="car-carrusel" data-carrusel aria-roledescription="carrusel"
         aria-label="Fotos de <?= e($ficha['nombre']) ?>">
     <div class="car-carrusel__pista">
@@ -143,6 +132,12 @@ $estiloHero = $conFondo
         <?php foreach ($porCuatri as $num => $lista): ?>
             <article class="car-plan__tarjeta">
             <h3 class="car-plan__titulo"><?= (int)$num ?>.º Cuatrimestre</h3>
+            <?php if (in_array((int)$num, $estadias, true)): ?>
+            <div class="car-plan__estadia">
+                <span class="car-plan__estadia-etiqueta">Estadía</span>
+                <p>Prácticas profesionales que se realizan durante este cuatrimestre.</p>
+            </div>
+            <?php else: ?>
             <ul class="car-plan__lista">
                 <?php foreach ($lista as $m): ?>
                 <li>
@@ -156,6 +151,7 @@ $estiloHero = $conFondo
                 </li>
                 <?php endforeach; ?>
             </ul>
+            <?php endif; ?>
             </article>
         <?php endforeach; ?>
         </div>
@@ -178,8 +174,26 @@ $estiloHero = $conFondo
 <?php else: ?>
     <div class="rejilla">
     <?php foreach ($instalaciones as $i): ?>
-        <div class="tarjeta">
-        <?php if ($i['imagen_servidor']): ?>
+        <?php
+          $esVideo  = !empty($i['video_servidor']);
+          $archivo  = $esVideo ? $i['video_servidor'] : ($i['imagen_servidor'] ?? '');
+          $conMedio = $archivo !== '' && $archivo !== null;
+        ?>
+        <div class="tarjeta<?= $conMedio ? ' car-instalacion' : '' ?>"
+            <?php if ($conMedio): ?>
+            data-instalacion data-tipo="<?= $esVideo ? 'video' : 'imagen' ?>"
+            data-src="uploads/<?= e($archivo) ?>"
+            data-titulo="<?= e($i['nombre']) ?>" data-descripcion="<?= e($i['descripcion']) ?>"
+            role="button" tabindex="0" aria-haspopup="dialog"
+            aria-label="Ampliar: <?= e($i['nombre']) ?>"
+            <?php endif; ?>>
+        <?php if ($esVideo): ?>
+            <div class="car-instalacion__medio">
+            <video class="tarjeta__medio" src="uploads/<?= e($i['video_servidor']) ?>#t=0.1"
+                preload="metadata" muted playsinline tabindex="-1"></video>
+            <span class="car-instalacion__play" aria-hidden="true">&#9654;</span>
+            </div>
+        <?php elseif ($i['imagen_servidor']): ?>
             <img class="tarjeta__medio" src="uploads/<?= e($i['imagen_servidor']) ?>"
                 alt="<?= e($i['nombre']) ?>">
         <?php endif; ?>
@@ -192,6 +206,23 @@ $estiloHero = $conFondo
     </div>
 <?php endif; ?>
 </div>
+
+<?php if ($videoEmbed !== null): ?>
+<div class="car-bloque car-bloque--centrado">
+    <h2>Video de la carrera</h2>
+    <div class="car-video">
+    <?php if ($videoEmbed['tipo'] === 'iframe'): ?>
+        <iframe src="<?= e($videoEmbed['src']) ?>" title="Video de <?= e($ficha['nombre']) ?>"
+                loading="lazy" allowfullscreen
+                allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"
+                referrerpolicy="strict-origin-when-cross-origin"></iframe>
+    <?php else: ?>
+        <video src="<?= e($videoEmbed['src']) ?>" controls preload="metadata"
+               title="Video de <?= e($ficha['nombre']) ?>"></video>
+    <?php endif; ?>
+    </div>
+</div>
+<?php endif; ?>
 
 </section>
 
@@ -211,7 +242,17 @@ $estiloHero = $conFondo
   </div>
 </section>
 
+<dialog class="car-visor" id="visor-instalacion" aria-labelledby="visor-titulo">
+    <button class="car-visor__cerrar" type="button" data-visor-cerrar aria-label="Cerrar">&times;</button>
+    <div class="car-visor__medio" data-visor-medio></div>
+    <div class="car-visor__texto">
+    <h3 id="visor-titulo" data-visor-titulo></h3>
+    <p data-visor-descripcion></p>
+    </div>
+</dialog>
+
 <script src="js/carrusel.js"></script>
+<script src="js/instalaciones.js"></script>
 <script src="js/plan.js"></script>
 <?php
 pie();

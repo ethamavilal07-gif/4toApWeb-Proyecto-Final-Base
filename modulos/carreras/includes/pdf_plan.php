@@ -223,7 +223,7 @@ stream
  *                        proposito, competencia y 'unidades' (numero, nombre,
  *                        horas_saber, horas_saber_hacer, horas_totales)
  */
-function car_plan_pdf(string $carrera, array $materias, string $nota = ''): string
+function car_plan_pdf(string $carrera, array $materias, string $nota = '', array $estadias = []): string
 {
     $pdf   = new CarPdf();
     $azul  = [0.10, 0.25, 0.63];
@@ -244,7 +244,7 @@ function car_plan_pdf(string $carrera, array $materias, string $nota = ''): stri
     $pdf->linea($mx, $pdf->y, $mx + $ancho, $pdf->y);
     $pdf->y -= 14;
 
-    if (!$materias) {
+    if (!$materias && !$estadias) {
         $pdf->parrafo('Aún no hay materias registradas para esta carrera.', 11, $mx, $ancho);
         return $pdf->salida('Plan de estudios · ' . $carrera);
     }
@@ -252,6 +252,9 @@ function car_plan_pdf(string $carrera, array $materias, string $nota = ''): stri
     $porCuatri = [];
     foreach ($materias as $m) {
         $porCuatri[(int)$m['cuatrimestre']][] = $m;
+    }
+    foreach ($estadias as $e) {
+        $porCuatri[(int)$e] = $porCuatri[(int)$e] ?? [];
     }
     ksort($porCuatri);
 
@@ -261,6 +264,13 @@ function car_plan_pdf(string $carrera, array $materias, string $nota = ''): stri
         $pdf->rectangulo($mx, $pdf->y - 22, $ancho, 24, $azul);
         $pdf->texto($mx + 10, $pdf->y - 15, $num . '.º Cuatrimestre', 12, true, [1, 1, 1]);
         $pdf->y -= 34;
+
+        if (in_array($num, array_map('intval', $estadias), true)) {
+            $pdf->parrafo('Estadía', 12, $mx, $ancho, true, [0.06, 0.13, 0.29]);
+            $pdf->parrafo('Prácticas profesionales que se realizan durante este cuatrimestre.', 10, $mx, $ancho);
+            $pdf->y -= 16;
+            continue;
+        }
 
         foreach ($lista as $m) {
             $pdf->espacio(70);

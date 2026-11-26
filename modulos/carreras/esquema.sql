@@ -87,12 +87,28 @@ CREATE TABLE IF NOT EXISTS car_instalaciones (
     nombre          VARCHAR(150) NOT NULL,
     descripcion     TEXT NOT NULL,
     imagen_servidor VARCHAR(255) NULL,         -- nombre generado por el servidor
+    video_servidor  VARCHAR(255) NULL,         -- video mp4 (una instalación lleva foto O video)
     orden           TINYINT UNSIGNED NOT NULL DEFAULT 1,
     creado_en       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     KEY ix_car_instalaciones_ficha (ficha_id),
 
     CONSTRAINT fk_car_instalaciones_ficha
+        FOREIGN KEY (ficha_id) REFERENCES car_fichas(id)
+        ON UPDATE CASCADE ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- -----------------------------------------------------------------------------
+-- car_estadias · cuatrimestres de estadía (prácticas); en ellos no se capturan materias
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS car_estadias (
+    id           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    ficha_id     INT UNSIGNED NOT NULL,
+    cuatrimestre TINYINT UNSIGNED NOT NULL,
+
+    UNIQUE KEY uq_car_estadias_ficha_cuatri (ficha_id, cuatrimestre),
+
+    CONSTRAINT fk_car_estadias_ficha
         FOREIGN KEY (ficha_id) REFERENCES car_fichas(id)
         ON UPDATE CASCADE ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

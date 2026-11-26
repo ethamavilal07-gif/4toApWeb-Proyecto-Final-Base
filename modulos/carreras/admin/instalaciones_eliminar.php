@@ -39,8 +39,10 @@ if ($ficha['estado'] !== 'borrador') {
 
 car_instalacion_eliminar((int)$inst['id']);
 
-if (!empty($inst['imagen_servidor'])) {
-    car_borrar_archivo(CARPETA_SUBIDAS, $inst['imagen_servidor']);
+foreach (['imagen_servidor', 'video_servidor'] as $col) {
+    if (!empty($inst[$col])) {
+        car_borrar_archivo(CARPETA_SUBIDAS, $inst[$col]);
+    }
 }
 
 mensaje('exito', 'Instalación eliminada.');

@@ -29,6 +29,6 @@ unset($m);
 
 $nombre = (string)$ficha['nombre'];
 car_plan_pdf_entregar(
-    car_plan_pdf($nombre, $materias, 'Borrador: refleja las materias capturadas hoy.'),
+    car_plan_pdf($nombre, $materias, 'Borrador: refleja las materias capturadas hoy.', car_estadias_de_ficha($fichaId)),
     car_plan_pdf_nombre($nombre)
 );

@@ -2,7 +2,7 @@
 /**
  * CAR · Revisión de una ficha (solo coordinación)
  * Muestra todo lo que capturó el editor (textos, imágenes, video, galería,
- * plan de estudios con sus unidades, instalaciones y documentos) para que la
+ * plan de estudios con sus unidades e instalaciones) para que la
  * coordinación pueda revisarlo completo antes de dar su dictamen.
  */
 
@@ -24,7 +24,6 @@ $ficha = car_ficha_autorizada($fichaId);
 $materias      = car_materias_de_ficha($fichaId);
 $unidades      = car_unidades_de_ficha($fichaId);
 $instalaciones = car_instalaciones_de_ficha($fichaId);
-$documentos    = car_documentos_de_ficha($fichaId);
 $historial     = car_historial($fichaId);
 
 // La galería se acomoda por lugar (1 a 6) para mostrar también los vacíos.
@@ -34,6 +33,7 @@ foreach (car_galeria_de_ficha($fichaId) as $g) {
 }
 
 // Materias agrupadas por cuatrimestre.
+$estadias = car_estadias_de_ficha($fichaId);
 $porCuatri = [];
 foreach ($materias as $m) {
     $porCuatri[(int)$m['cuatrimestre']][] = $m;
@@ -68,12 +68,10 @@ $apartados = [
     ['Video', $videoValido, $videoValido ? 'Con enlace' : 'Sin video', 'imagenes'],
     ['Galería', count($galeria) > 0,
         count($galeria) . ' de ' . CAR_GALERIA_MAX . ' fotos', 'galeria'],
-    ['Plan de estudios', count($materias) > 0,
-        $cuenta(count($materias), 'materia', 'materias'), 'materias'],
+    ['Plan de estudios', count($materias) > 0 || $estadias,
+        $cuenta(count($materias), 'materia', 'materias') . ($estadias ? ' · ' . count($estadias) . ' de estadía' : ''), 'materias'],
     ['Instalaciones', count($instalaciones) > 0,
         $cuenta(count($instalaciones), 'instalación', 'instalaciones'), 'instalaciones'],
-    ['Documentos', count($documentos) > 0,
-        $cuenta(count($documentos), 'documento', 'documentos'), 'documentos'],
 ];
 
 cabecera('Revisar ficha', $ficha['area'], '../css/modulo.css');
@@ -207,6 +205,9 @@ cabecera('Revisar ficha', $ficha['area'], '../css/modulo.css');
 
 <div class="panel mb-6" id="materias">
     <h2>Plan de estudios <span class="leyenda">· <?= e($cuenta(count($materias), 'materia', 'materias')) ?></span></h2>
+    <?php if ($estadias): ?>
+    <p>Cuatrimestres de estadía (prácticas, sin materias): <strong><?= e(implode(', ', $estadias)) ?></strong>.</p>
+    <?php endif; ?>
     <?php if (!$porCuatri): ?>
     <p class="leyenda">El editor no ha capturado materias.</p>
     <?php else: ?>
@@ -273,51 +274,22 @@ cabecera('Revisar ficha', $ficha['area'], '../css/modulo.css');
     <div class="rejilla">
         <?php foreach ($instalaciones as $i): ?>
         <div class="tarjeta">
-            <?php if ($i['imagen_servidor']): ?>
+            <?php if (!empty($i['video_servidor'])): ?>
+            <video class="tarjeta__medio" src="../uploads/<?= e($i['video_servidor']) ?>"
+                controls preload="metadata" title="<?= e($i['nombre']) ?>"></video>
+            <?php elseif ($i['imagen_servidor']): ?>
             <img class="tarjeta__medio" src="../uploads/<?= e($i['imagen_servidor']) ?>"
                 alt="<?= e($i['nombre']) ?>" loading="lazy">
             <?php endif; ?>
             <div class="tarjeta__cuerpo">
             <h3 class="tarjeta__titulo"><?= e($i['nombre']) ?></h3>
             <p><?= nl2br(e($i['descripcion'])) ?></p>
-            <?php if (!$i['imagen_servidor']): ?>
-                <p class="leyenda">Sin foto.</p>
+            <?php if (!$i['imagen_servidor'] && empty($i['video_servidor'])): ?>
+                <p class="leyenda">Sin foto ni video.</p>
             <?php endif; ?>
             </div>
         </div>
         <?php endforeach; ?>
-    </div>
-    <?php endif; ?>
-</div>
-
-<div class="panel mb-6" id="documentos">
-    <h2>Documentos <span class="leyenda">· <?= e($cuenta(count($documentos), 'documento', 'documentos')) ?></span></h2>
-    <?php if (!$documentos): ?>
-    <p class="leyenda">El editor no ha subido documentos.</p>
-    <?php else: ?>
-    <div class="tabla-envoltura">
-        <table class="tabla">
-        <thead>
-            <tr>
-            <th scope="col">Título</th>
-            <th scope="col">Archivo</th>
-            <th scope="col">Tamaño</th>
-            <th scope="col">Acceso</th>
-            <th scope="col">Descargas</th>
-            </tr>
-        </thead>
-        <tbody>
-        <?php foreach ($documentos as $d): ?>
-            <tr>
-            <td><a href="../descargar.php?id=<?= (int)$d['id'] ?>"><?= e($d['titulo']) ?></a></td>
-            <td><?= e($d['nombre_original']) ?></td>
-            <td><?= e($tamano((int)$d['tamano_bytes'])) ?></td>
-            <td><?= (int)$d['restringido'] === 1 ? 'Solo con sesión' : 'Público' ?></td>
-            <td><?= (int)$d['descargas'] ?></td>
-            </tr>
-        <?php endforeach; ?>
-        </tbody>
-        </table>
     </div>
     <?php endif; ?>
 </div>

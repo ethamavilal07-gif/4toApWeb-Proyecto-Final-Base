@@ -14,6 +14,7 @@ require_once __DIR__ . '/../includes/consultas.php';
 require_once __DIR__ . '/../includes/panel.php';
 
 const CARPETA_SUBIDAS = __DIR__ . '/../uploads';
+const CAR_VIDEO_MAX_MB = 30;
 
 $fichaId = entero(get('ficha'));
 if ($fichaId === null) {
@@ -35,7 +36,6 @@ if ($editarId !== null) {
 $datos = [
     'nombre'      => (string)($editando['nombre']      ?? ''),
     'descripcion' => (string)($editando['descripcion'] ?? ''),
-    'orden'       => (string)($editando['orden']       ?? '1'),
 ];
 $errores = [];
 
@@ -105,15 +105,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Borrar solo la imagen de una instalación ya guardada.
     if ($accion === 'quitar_imagen') {
-        if ($existente !== null && !empty($existente['imagen_servidor'])) {
+        if ($existente !== null && (!empty($existente['imagen_servidor']) || !empty($existente['video_servidor']))) {
             car_instalacion_actualizar((int)$existente['id'], [
                 'nombre'          => $existente['nombre'],
                 'descripcion'     => $existente['descripcion'],
                 'imagen_servidor' => null,
-                'orden'           => $existente['orden'],
+                'video_servidor'  => null,
             ]);
             car_borrar_archivo(CARPETA_SUBIDAS, $existente['imagen_servidor']);
-            mensaje('exito', 'Imagen eliminada.');
+            car_borrar_archivo(CARPETA_SUBIDAS, $existente['video_servidor'] ?? null);
+            mensaje('exito', !empty($existente['video_servidor']) ? 'Video eliminado.' : 'Foto eliminada.');
         }
         redirigir($volver . ($existente !== null ? '&editar=' . (int)$existente['id'] : ''));
     }
@@ -135,29 +136,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errores['descripcion'] = 'Máximo 1000 caracteres.';
     }
 
-    $orden = filter_var($datos['orden'] === '' ? '1' : $datos['orden'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 99]]);
-    if ($orden === false) {
-        $errores['orden'] = 'El orden debe ser un número entre 1 y 99.';
-    }
-
-    /* --- Imagen (opcional): solo si lo demás es válido --- */
+    /* --- Foto o video (opcional): solo si lo demás es válido --- */
     $imagen = $existente['imagen_servidor'] ?? null;
-    $imagenNueva = null;
-    if (!$errores && !empty($_FILES['imagen']['name'])) {
+    $video  = $existente['video_servidor'] ?? null;
+    $medioNuevo = null;
+    $medioEsVideo = false;
+    if (!$errores && !empty($_FILES['medio']['name'])) {
         try {
-            $imagenNueva = guardar_archivo($_FILES['imagen'], CARPETA_SUBIDAS, SOLO_IMAGEN, 2);
+            // El tipo real decide las reglas: video mp4 hasta 30 MB, foto hasta 2 MB.
+            $tipoReal = '';
+            if (($_FILES['medio']['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK && is_string($_FILES['medio']['tmp_name'] ?? null)) {
+                $tipoReal = (string)(new finfo(FILEINFO_MIME_TYPE))->file($_FILES['medio']['tmp_name']);
+            }
+            if (in_array($tipoReal, SOLO_VIDEO, true)) {
+                $medioNuevo = guardar_archivo($_FILES['medio'], CARPETA_SUBIDAS, SOLO_VIDEO, CAR_VIDEO_MAX_MB);
+                $medioEsVideo = true;
+            } else {
+                $medioNuevo = guardar_archivo($_FILES['medio'], CARPETA_SUBIDAS, SOLO_IMAGEN, 2);
+            }
         } catch (RuntimeException $e) {
-            $errores['imagen'] = $e->getMessage();
+            $errores['medio'] = $e->getMessage();
         }
     }
 
     /* --- Guardar --- */
     if (!$errores) {
+        // Una instalación lleva foto O video: el nuevo reemplaza al otro.
+        $imagenFinal = $imagen;
+        $videoFinal  = $video;
+        if ($medioNuevo !== null) {
+            $imagenFinal = $medioEsVideo ? null : $medioNuevo;
+            $videoFinal  = $medioEsVideo ? $medioNuevo : null;
+        }
+
         $fila = [
             'nombre'          => $datos['nombre'],
             'descripcion'     => $datos['descripcion'],
-            'imagen_servidor' => $imagenNueva ?? $imagen,
-            'orden'           => $orden,
+            'imagen_servidor' => $imagenFinal,
+            'video_servidor'  => $videoFinal,
         ];
 
         if ($instId === null) {
@@ -165,8 +181,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             mensaje('exito', 'Instalación agregada.');
         } else {
             car_instalacion_actualizar($instId, $fila);
-            if ($imagenNueva !== null && !empty($imagen)) {
-                car_borrar_archivo(CARPETA_SUBIDAS, $imagen);   // se borra la anterior ya guardada la nueva
+            if ($medioNuevo !== null) {
+                // Se borran los anteriores ya guardado el nuevo.
+                car_borrar_archivo(CARPETA_SUBIDAS, $imagen);
+                car_borrar_archivo(CARPETA_SUBIDAS, $video);
             }
             mensaje('exito', 'Instalación actualizada.');
         }
@@ -233,34 +251,35 @@ cabecera('Instalaciones', $ficha['area'], '../css/modulo.css');
       <?php if (isset($errores['descripcion'])): ?><small class="campo__error"><?= e($errores['descripcion']) ?></small><?php endif; ?>
     </div>
 
-    <div class="campo <?= isset($errores['orden']) ? 'campo--invalido' : '' ?>" style="max-width:140px">
-      <label class="campo__etiqueta" for="orden">Orden</label>
-      <input class="campo__control" type="number" id="orden" name="orden"
-             min="1" max="99" value="<?= e($datos['orden']) ?>">
-      <?php if (isset($errores['orden'])): ?><small class="campo__error"><?= e($errores['orden']) ?></small><?php endif; ?>
-    </div>
-
-    <div class="campo <?= isset($errores['imagen']) ? 'campo--invalido' : '' ?>">
-      <label class="campo__etiqueta" for="imagen">Imagen</label>
+    <?php
+      $tieneVideo = !empty($editando['video_servidor']);
+      $tieneFoto  = !empty($editando['imagen_servidor']);
+    ?>
+    <div class="campo <?= isset($errores['medio']) ? 'campo--invalido' : '' ?>">
+      <label class="campo__etiqueta" for="medio">Foto o video</label>
       <img id="vista-imagen" class="car-vista-previa car-vista-previa--corta"
-           src="<?= !empty($editando['imagen_servidor']) ? '../uploads/' . e($editando['imagen_servidor']) : '' ?>"
-           alt="Vista previa de la imagen" <?= empty($editando['imagen_servidor']) ? 'hidden' : '' ?>>
+           src="<?= $tieneFoto ? '../uploads/' . e($editando['imagen_servidor']) : '' ?>"
+           alt="Vista previa de la foto" <?= $tieneFoto ? '' : 'hidden' ?>>
+      <video id="vista-video-inst" class="car-vista-previa car-vista-previa--corta" controls preload="metadata"
+             src="<?= $tieneVideo ? '../uploads/' . e($editando['video_servidor']) : '' ?>"
+             <?= $tieneVideo ? '' : 'hidden' ?>></video>
       <div class="fila" style="margin-bottom: var(--e3);">
-        <?php if (!empty($editando['imagen_servidor'])): ?>
+        <?php if ($tieneFoto || $tieneVideo): ?>
           <button class="boton boton--peligro boton--pequeno" type="submit"
                   name="accion" value="quitar_imagen" formnovalidate
-                  data-confirmar="¿Borrar la imagen actual? Se elimina al instante y no se puede deshacer."
-                  data-confirmar-boton="Borrar imagen" data-confirmar-tipo="peligro">
-            Borrar imagen actual
+                  data-confirmar="¿Borrar <?= $tieneVideo ? 'el video actual' : 'la foto actual' ?>? Se elimina al instante y no se puede deshacer."
+                  data-confirmar-boton="Borrar <?= $tieneVideo ? 'video' : 'foto' ?>" data-confirmar-tipo="peligro">
+            <?= $tieneVideo ? 'Borrar video actual' : 'Borrar imagen actual' ?>
           </button>
         <?php endif; ?>
         <button class="boton boton--secundario boton--pequeno" type="button"
                 id="limpiar-imagen" hidden>Quitar selección</button>
       </div>
-      <input class="campo__control" type="file" id="imagen" name="imagen" accept="image/jpeg,image/png,image/webp"
-             data-vista="vista-imagen" data-vista-limpiar="limpiar-imagen">
-      <small class="campo__ayuda">JPG, PNG o WebP. Máximo 2 MB.</small>
-      <?php if (isset($errores['imagen'])): ?><small class="campo__error"><?= e($errores['imagen']) ?></small><?php endif; ?>
+      <input class="campo__control" type="file" id="medio" name="medio"
+             accept="image/jpeg,image/png,image/webp,video/mp4"
+             data-vista="vista-imagen" data-vista-video="vista-video-inst" data-vista-limpiar="limpiar-imagen">
+      <small class="campo__ayuda">Foto (JPG, PNG o WebP, máximo 2 MB) o video MP4 (máximo <?= CAR_VIDEO_MAX_MB ?> MB). Se guarda una cosa u otra.</small>
+      <?php if (isset($errores['medio'])): ?><small class="campo__error"><?= e($errores['medio']) ?></small><?php endif; ?>
     </div>
 
     <div class="fila">
@@ -279,14 +298,14 @@ cabecera('Instalaciones', $ficha['area'], '../css/modulo.css');
       <table class="tabla">
         <caption><?= count($instalaciones) ?> instalación<?= count($instalaciones) === 1 ? '' : 'es' ?></caption>
         <thead>
-          <tr><th scope="col">Orden</th><th scope="col">Nombre</th><th scope="col">Imagen</th><th scope="col">Acciones</th></tr>
+          <tr><th scope="col">Orden</th><th scope="col">Nombre</th><th scope="col">Foto / video</th><th scope="col">Acciones</th></tr>
         </thead>
         <tbody>
         <?php foreach ($instalaciones as $i): ?>
           <tr>
             <td><?= (int)$i['orden'] ?></td>
             <td><?= e($i['nombre']) ?></td>
-            <td><?= $i['imagen_servidor'] ? 'Sí' : '—' ?></td>
+            <td><?= !empty($i['video_servidor']) ? 'Video' : ($i['imagen_servidor'] ? 'Foto' : '—') ?></td>
             <td>
               <?php if ($editable): ?>
               <div class="tabla__acciones">
