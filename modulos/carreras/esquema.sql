@@ -141,6 +141,29 @@ CREATE TABLE IF NOT EXISTS car_documentos (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- -----------------------------------------------------------------------------
+-- car_publicaciones · versión publicada de cada ficha (lo que ve el público)
+-- Se genera al publicar. El borrador puede cambiar sin afectar lo publicado.
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS car_publicaciones (
+    id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    ficha_id       INT UNSIGNED NOT NULL,
+    resumen        TEXT NOT NULL,                 -- copia para el índice y la búsqueda
+    imagen_portada VARCHAR(255) NULL,             -- copia para las tarjetas del índice
+    contenido      LONGTEXT NOT NULL,             -- JSON: ficha, materias, instalaciones, galería, documentos
+    publicado_por  INT UNSIGNED NULL,
+    publicado_en   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE KEY uq_car_publicaciones_ficha (ficha_id),
+
+    CONSTRAINT fk_car_publicaciones_ficha
+        FOREIGN KEY (ficha_id) REFERENCES car_fichas(id)
+        ON UPDATE CASCADE ON DELETE CASCADE,
+    CONSTRAINT fk_car_publicaciones_usuario
+        FOREIGN KEY (publicado_por) REFERENCES usuarios(id)
+        ON UPDATE CASCADE ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- -----------------------------------------------------------------------------
 -- car_revisiones · bitácora de cambios de estado y observaciones
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS car_revisiones (

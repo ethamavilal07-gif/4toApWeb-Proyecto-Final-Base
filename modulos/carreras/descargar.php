@@ -14,21 +14,29 @@ if ($id === null) {
     no_encontrado('Documento no válido.');
 }
 
-$doc = car_documento_obtener($id);
-if ($doc === null) {
+$vivo      = car_documento_obtener($id);
+$publicado = car_documento_publicado($id);   // dentro de la versión que ve el público
+
+if ($vivo === null && $publicado === null) {
     no_encontrado('El documento no existe.');
 }
 
-// 1. Si la ficha NO está publicada, solo el editor de esa carrera o la
-//    coordinación pueden bajar el documento.
-if ($doc['ficha_estado'] !== 'publicado') {
-    requerir_carrera((int)$doc['carrera_id']);
+if ($publicado !== null) {
+    // 1. Forma parte de la versión publicada: lo puede bajar el público, aunque
+    //    el borrador se esté modificando (o el documento ya se haya quitado de él).
+    $doc = $publicado;
+} else {
+    // 2. Solo está en el borrador: únicamente el editor de esa carrera o la coordinación.
+    requerir_carrera((int)$vivo['carrera_id']);
+    $doc = $vivo;
 }
 
-// 2. Si el documento está marcado como restringido, exige sesión.
+// 3. Si el documento está marcado como restringido, exige sesión.
 if ((int)$doc['restringido'] === 1) {
     requerir_sesion();
 }
 
-car_documento_sumar_descarga($id);
+if ($vivo !== null) {
+    car_documento_sumar_descarga($id);
+}
 entregar_archivo(__DIR__ . '/uploads/docs/' . $doc['archivo_servidor'], $doc['nombre_original']);

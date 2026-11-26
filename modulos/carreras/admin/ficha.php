@@ -55,20 +55,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     /* --- Validación en el servidor --- */
     if ($datos['resumen'] === '') {
         $errores['resumen'] = 'El resumen es obligatorio.';
-    } elseif (mb_strlen($datos['resumen']) > 2000) {
-        $errores['resumen'] = 'El resumen no puede pasar de 2000 caracteres.';
+    } elseif (mb_strlen($datos['resumen']) > 1000) {
+        $errores['resumen'] = 'El resumen no puede pasar de 1000 caracteres.';
     }
 
     if ($datos['perfil_egreso'] === '') {
         $errores['perfil_egreso'] = 'El perfil de egreso es obligatorio.';
-    } elseif (mb_strlen($datos['perfil_egreso']) > 2000) {
-        $errores['perfil_egreso'] = 'Máximo 2000 caracteres.';
+    } elseif (mb_strlen($datos['perfil_egreso']) > 1000) {
+        $errores['perfil_egreso'] = 'Máximo 1000 caracteres.';
     }
 
     if ($datos['campo_laboral'] === '') {
         $errores['campo_laboral'] = 'El campo laboral es obligatorio.';
-    } elseif (mb_strlen($datos['campo_laboral']) > 2000) {
-        $errores['campo_laboral'] = 'Máximo 2000 caracteres.';
+    } elseif (mb_strlen($datos['campo_laboral']) > 1000) {
+        $errores['campo_laboral'] = 'Máximo 1000 caracteres.';
     }
 
     if ($datos['video_url'] !== '') {
@@ -116,21 +116,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($nuevaPortada !== null) {
             car_guardar_portada($fichaId, $nuevaPortada);
             if (!empty($ficha['imagen_portada'])) {
-                @unlink(CARPETA_SUBIDAS . '/' . $ficha['imagen_portada']);
+                car_borrar_archivo(CARPETA_SUBIDAS, $ficha['imagen_portada']);
             }
         } elseif ($quitarPortada && !empty($ficha['imagen_portada'])) {
             car_guardar_portada($fichaId, null);
-            @unlink(CARPETA_SUBIDAS . '/' . $ficha['imagen_portada']);
+            car_borrar_archivo(CARPETA_SUBIDAS, $ficha['imagen_portada']);
         }
 
         if ($nuevoFondo !== null) {
             car_guardar_fondo($fichaId, $nuevoFondo);
             if (!empty($ficha['imagen_fondo'])) {
-                @unlink(CARPETA_SUBIDAS . '/' . $ficha['imagen_fondo']);
+                car_borrar_archivo(CARPETA_SUBIDAS, $ficha['imagen_fondo']);
             }
         } elseif ($quitarFondo && !empty($ficha['imagen_fondo'])) {
             car_guardar_fondo($fichaId, null);
-            @unlink(CARPETA_SUBIDAS . '/' . $ficha['imagen_fondo']);
+            car_borrar_archivo(CARPETA_SUBIDAS, $ficha['imagen_fondo']);
         }
 
         mensaje('exito', 'Ficha guardada.');
@@ -173,22 +173,22 @@ cabecera('Editar ficha', $carrera['area'] ?? '', '../css/modulo.css');
     <div class="campo <?= isset($errores['resumen']) ? 'campo--invalido' : '' ?>">
         <label class="campo__etiqueta" for="resumen">Resumen *</label>
         <textarea class="campo__control" id="resumen" name="resumen" rows="3"
-                maxlength="2000" required><?= e($datos['resumen']) ?></textarea>
-        <small class="campo__ayuda">Se muestra en la tarjeta del índice. Máximo 2000 caracteres.</small>
+                maxlength="1000" required><?= e($datos['resumen']) ?></textarea>
+        <small class="campo__ayuda">Se muestra en la tarjeta del índice. Máximo 1000 caracteres.</small>
         <?php if (isset($errores['resumen'])): ?><small class="campo__error"><?= e($errores['resumen']) ?></small><?php endif; ?>
     </div>
 
     <div class="campo <?= isset($errores['perfil_egreso']) ? 'campo--invalido' : '' ?>">
         <label class="campo__etiqueta" for="perfil_egreso">Perfil de egreso *</label>
         <textarea class="campo__control" id="perfil_egreso" name="perfil_egreso" rows="5"
-                maxlength="2000" required><?= e($datos['perfil_egreso']) ?></textarea>
+                maxlength="1000" required><?= e($datos['perfil_egreso']) ?></textarea>
         <?php if (isset($errores['perfil_egreso'])): ?><small class="campo__error"><?= e($errores['perfil_egreso']) ?></small><?php endif; ?>
     </div>
 
     <div class="campo <?= isset($errores['campo_laboral']) ? 'campo--invalido' : '' ?>">
         <label class="campo__etiqueta" for="campo_laboral">Campo laboral *</label>
         <textarea class="campo__control" id="campo_laboral" name="campo_laboral" rows="5"
-                maxlength="2000" required><?= e($datos['campo_laboral']) ?></textarea>
+                maxlength="1000" required><?= e($datos['campo_laboral']) ?></textarea>
         <?php if (isset($errores['campo_laboral'])): ?><small class="campo__error"><?= e($errores['campo_laboral']) ?></small><?php endif; ?>
     </div>
 

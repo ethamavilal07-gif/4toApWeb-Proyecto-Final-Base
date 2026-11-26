@@ -76,11 +76,13 @@ function car_listar_publicas(
     string $duracion = '',
     int $pagina = 1
 ): array {
+    car_asegurar_publicaciones();   // fichas publicadas antes de existir la tabla de publicaciones
+
     $condiciones = ['c.activa = 1'];
     $valores     = [];
 
     if ($busqueda !== '') {
-        $condiciones[] = '(c.nombre LIKE ? OR c.clave LIKE ? OR f.resumen LIKE ?)';
+        $condiciones[] = '(c.nombre LIKE ? OR c.clave LIKE ? OR p.resumen LIKE ?)';
         $comodin = '%' . $busqueda . '%';
         array_push($valores, $comodin, $comodin, $comodin);
     }
@@ -98,7 +100,10 @@ function car_listar_publicas(
     }
 
     $donde = 'WHERE ' . implode(' AND ', $condiciones);
-    $union = "LEFT JOIN car_fichas f ON f.carrera_id = c.id AND f.estado = 'publicado'";
+    // Lo que ve el público es la VERSIÓN PUBLICADA (car_publicaciones), no el
+    // borrador: devolver una ficha a borrador no la quita del índice.
+    $union = "LEFT JOIN car_fichas f ON f.carrera_id = c.id
+            LEFT JOIN car_publicaciones p ON p.ficha_id = f.id";
 
     $con = bd()->prepare("SELECT COUNT(*) FROM carreras c $union $donde");
     $con->execute($valores);
@@ -110,7 +115,7 @@ function car_listar_publicas(
 
     $con = bd()->prepare(
         "SELECT c.id, c.nombre, c.clave, c.area, c.duracion, c.modalidad,
-                f.id AS ficha_id, f.resumen, f.imagen_portada
+                p.id AS ficha_id, p.resumen, p.imagen_portada
         FROM carreras c
         $union
         $donde
@@ -127,18 +132,212 @@ function car_listar_publicas(
     ];
 }
 
-/** Ficha PÚBLICA de una carrera (por id de carrera), o null si no está publicada. */
+/**
+ * Ficha PÚBLICA de una carrera (por id de carrera), o null si nunca se publicó.
+ * Devuelve la VERSIÓN PUBLICADA: ['ficha' => ..., 'materias' => ..., 'instalaciones' => ...,
+ * 'galeria' => ..., 'documentos' => ...]. Mientras se edita un borrador nuevo, el
+ * público sigue viendo esta versión.
+ */
 function car_ficha_publica(int $carreraId): ?array
 {
     $con = bd()->prepare(
-        "SELECT f.*, c.nombre, c.clave, c.area, c.duracion, c.modalidad
+        'SELECT p.contenido, p.publicado_en, f.id AS ficha_id, f.estado,
+                c.nombre, c.clave, c.area, c.duracion, c.modalidad
         FROM car_fichas f
         JOIN carreras c ON c.id = f.carrera_id
-        WHERE f.carrera_id = ? AND f.estado = 'publicado' AND c.activa = 1"
+        LEFT JOIN car_publicaciones p ON p.ficha_id = f.id
+        WHERE f.carrera_id = ? AND c.activa = 1'
     );
     $con->execute([$carreraId]);
-    return $con->fetch() ?: null;
+    $fila = $con->fetch();
+    if (!$fila) {
+        return null;
+    }
+
+    // Ficha publicada antes de existir esta tabla: se genera su versión ahora.
+    if ($fila['contenido'] === null) {
+        if ($fila['estado'] !== 'publicado') {
+            return null;
+        }
+        car_generar_publicacion((int)$fila['ficha_id'], null);
+        return car_ficha_publica($carreraId);
+    }
+
+    $contenido = json_decode((string)$fila['contenido'], true);
+    if (!is_array($contenido)) {
+        return null;
+    }
+
+    $contenido['ficha'] = array_merge($contenido['ficha'], [
+        'id'           => (int)$fila['ficha_id'],
+        'nombre'       => $fila['nombre'],
+        'clave'        => $fila['clave'],
+        'area'         => $fila['area'],
+        'duracion'     => $fila['duracion'],
+        'modalidad'    => $fila['modalidad'],
+        'publicado_en' => $fila['publicado_en'],
+    ]);
+
+    // El contador de descargas que se muestra es el real, no el de la fecha de publicación.
+    foreach ($contenido['documentos'] as &$d) {
+        $vivo = car_documento_obtener((int)$d['id']);
+        if ($vivo !== null) {
+            $d['descargas'] = (int)$vivo['descargas'];
+        }
+    }
+    unset($d);
+
+    return $contenido;
 }
+
+/* =========================================================================
+ * PUBLICACIONES · la versión que ve el público
+ * ====================================================================== */
+
+/** Imágenes y PDF que usa una versión publicada: ['imagenes' => [...], 'docs' => [...]]. */
+function car_archivos_de_contenido(array $c): array
+{
+    $imagenes = [$c['ficha']['imagen_portada'] ?? null, $c['ficha']['imagen_fondo'] ?? null];
+    foreach ($c['instalaciones'] ?? [] as $i) {
+        $imagenes[] = $i['imagen_servidor'] ?? null;
+    }
+    foreach ($c['galeria'] ?? [] as $g) {
+        $imagenes[] = $g['imagen_servidor'] ?? null;
+    }
+    $docs = [];
+    foreach ($c['documentos'] ?? [] as $d) {
+        $docs[] = $d['archivo_servidor'] ?? null;
+    }
+    return [
+        'imagenes' => array_values(array_unique(array_filter($imagenes))),
+        'docs'     => array_values(array_unique(array_filter($docs))),
+    ];
+}
+
+/**
+ * Guarda una copia de lo que hay AHORA en la ficha como su versión publicada.
+ * Se llama al publicar (dentro de la transacción de car_cambiar_estado).
+ * Devuelve los archivos de la versión anterior que ya nadie usa, para que
+ * quien llama los borre del disco una vez confirmada la transacción.
+ */
+function car_generar_publicacion(int $fichaId, ?int $usuarioId): array
+{
+    $ficha = car_ficha_obtener($fichaId);
+    if ($ficha === null) {
+        throw new RuntimeException('La ficha no existe.');
+    }
+
+    $materias = car_materias_de_ficha($fichaId);
+    $unidades = car_unidades_de_ficha($fichaId);
+    foreach ($materias as &$m) {
+        $m['unidades'] = $unidades[(int)$m['id']] ?? [];
+    }
+    unset($m);
+
+    $contenido = [
+        'ficha' => [
+            'resumen'        => $ficha['resumen'],
+            'perfil_egreso'  => $ficha['perfil_egreso'],
+            'campo_laboral'  => $ficha['campo_laboral'],
+            'video_url'      => $ficha['video_url'],
+            'imagen_portada' => $ficha['imagen_portada'],
+            'imagen_fondo'   => $ficha['imagen_fondo'] ?? null,
+        ],
+        'materias'      => $materias,
+        'instalaciones' => car_instalaciones_de_ficha($fichaId),
+        'galeria'       => car_galeria_de_ficha($fichaId),
+        'documentos'    => car_documentos_de_ficha($fichaId),
+    ];
+
+    $json = json_encode($contenido, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+
+    // Archivos de la versión anterior que la nueva ya no usa.
+    $huerfanos = ['imagenes' => [], 'docs' => []];
+    $previa = bd()->prepare('SELECT contenido FROM car_publicaciones WHERE ficha_id = ?');
+    $previa->execute([$fichaId]);
+    $anterior = $previa->fetchColumn();
+    if ($anterior !== false) {
+        $viejo = json_decode((string)$anterior, true);
+        if (is_array($viejo)) {
+            $antes = car_archivos_de_contenido($viejo);
+            $ahora = car_archivos_de_contenido($contenido);
+            $huerfanos['imagenes'] = array_values(array_diff($antes['imagenes'], $ahora['imagenes']));
+            $huerfanos['docs']     = array_values(array_diff($antes['docs'], $ahora['docs']));
+        }
+    }
+
+    $con = bd()->prepare(
+        'INSERT INTO car_publicaciones (ficha_id, resumen, imagen_portada, contenido, publicado_por, publicado_en)
+        VALUES (?, ?, ?, ?, ?, NOW())
+        ON DUPLICATE KEY UPDATE resumen = VALUES(resumen), imagen_portada = VALUES(imagen_portada),
+            contenido = VALUES(contenido), publicado_por = VALUES(publicado_por), publicado_en = NOW()'
+    );
+    $con->execute([$fichaId, $ficha['resumen'], $ficha['imagen_portada'], $json, $usuarioId]);
+
+    return $huerfanos;
+}
+
+/** Genera la versión publicada de las fichas que ya estaban publicadas y no la tienen. */
+function car_asegurar_publicaciones(): void
+{
+    $ids = bd()->query(
+        "SELECT f.id FROM car_fichas f
+        LEFT JOIN car_publicaciones p ON p.ficha_id = f.id
+        WHERE f.estado = 'publicado' AND p.id IS NULL"
+    )->fetchAll(PDO::FETCH_COLUMN);
+
+    foreach ($ids as $id) {
+        car_generar_publicacion((int)$id, null);
+    }
+}
+
+/** Fecha en que se publicó la versión visible de una ficha, o null si nunca se publicó. */
+function car_publicada_en(int $fichaId): ?string
+{
+    $con = bd()->prepare('SELECT publicado_en FROM car_publicaciones WHERE ficha_id = ?');
+    $con->execute([$fichaId]);
+    $fecha = $con->fetchColumn();
+    return $fecha === false ? null : (string)$fecha;
+}
+
+/** ¿La versión publicada de alguna ficha usa todavía este archivo? */
+function car_archivo_en_publicacion(string $archivo): bool
+{
+    $patron = '%"' . addcslashes($archivo, '%_\\') . '"%';
+    $con = bd()->prepare('SELECT COUNT(*) FROM car_publicaciones WHERE contenido LIKE ?');
+    $con->execute([$patron]);
+    return (int)$con->fetchColumn() > 0;
+}
+
+/**
+ * Borra un archivo del disco SOLO si la versión publicada no lo usa. Así el
+ * editor puede cambiar o quitar una imagen del borrador sin romper lo que el
+ * público está viendo. Si se conserva, se borra solo al publicar la versión nueva.
+ */
+function car_borrar_archivo(string $carpeta, ?string $archivo): void
+{
+    if ($archivo === null || $archivo === '' || car_archivo_en_publicacion($archivo)) {
+        return;
+    }
+    @unlink(rtrim($carpeta, '/\\') . '/' . basename($archivo));
+}
+
+/** Datos de un documento dentro de las versiones publicadas, o null. */
+function car_documento_publicado(int $id): ?array
+{
+    $con = bd()->query('SELECT ficha_id, contenido FROM car_publicaciones');
+    foreach ($con->fetchAll() as $fila) {
+        $c = json_decode((string)$fila['contenido'], true);
+        foreach ($c['documentos'] ?? [] as $d) {
+            if ((int)$d['id'] === $id) {
+                $d['ficha_id'] = (int)$fila['ficha_id'];
+                return $d;
+            }
+        }
+    }
+    return null;
+}
+
 
 /* =========================================================================
  * PANEL · fichas
@@ -280,9 +479,11 @@ function car_listar_bandeja(string $estado = '', string $busqueda = ''): array
     $con = bd()->prepare(
         "SELECT c.id AS carrera_id, c.nombre, c.clave, c.area,
                 f.id AS ficha_id, f.estado, f.actualizado_en,
-                u.nombre AS actualizado_por
+                u.nombre AS actualizado_por,
+                p.publicado_en AS publicada_en
         FROM carreras c
     LEFT JOIN car_fichas f ON f.carrera_id = c.id
+    LEFT JOIN car_publicaciones p ON p.ficha_id = f.id
     LEFT JOIN usuarios u   ON u.id = f.actualizado_por
         $donde
     ORDER BY FIELD(f.estado, 'revision', 'borrador', 'publicado'), c.nombre"
@@ -339,10 +540,25 @@ function car_cambiar_estado(int $fichaId, string $nuevo, ?string $observaciones,
         );
         $con->execute([$fichaId, $usuarioId, $actual, $nuevo, $observaciones]);
 
+        // Publicar = la versión que ve el público pasa a ser esta. Devolver a
+        // borrador NO toca la versión publicada: sigue visible hasta la próxima publicación.
+        $huerfanos = ['imagenes' => [], 'docs' => []];
+        if ($nuevo === 'publicado') {
+            $huerfanos = car_generar_publicacion($fichaId, $usuarioId);
+        }
+
         $pdo->commit();
     } catch (Throwable $e) {
         $pdo->rollBack();
         throw $e;
+    }
+
+    // Ya confirmado: se borran del disco los archivos de la versión anterior que sobran.
+    foreach ($huerfanos['imagenes'] as $archivo) {
+        @unlink(__DIR__ . '/../uploads/' . basename($archivo));
+    }
+    foreach ($huerfanos['docs'] as $archivo) {
+        @unlink(__DIR__ . '/../uploads/docs/' . basename($archivo));
     }
 }
 
@@ -583,3 +799,59 @@ function car_documento_sumar_descarga(int $id): void
     $con = bd()->prepare('UPDATE car_documentos SET descargas = descargas + 1 WHERE id = ?');
     $con->execute([$id]);
 }
+
+/* =========================================================================
+ * VIDEO · vista incrustada
+ * ====================================================================== */
+
+/**
+ * Datos para incrustar una el video dentro de la página, o null si la dirección no
+ * se puede mostrar (entonces en la ficha pública queda solo como enlace).
+ * Reconoce YouTube, Vimeo y archivos .mp4 / .webm / .ogg directos.
+ *
+ * @return array{tipo:string,src:string}|null
+ */
+function car_video_embed(?string $url): ?array
+{
+    $url = trim((string)$url);
+    if ($url === '' || preg_match('#^https?://#i', $url) !== 1) {
+        return null;
+    }
+
+    $partes = parse_url($url);
+    if ($partes === false || empty($partes['host'])) {
+        return null;
+    }
+    $host = strtolower(preg_replace('/^(www|m)\./i', '', $partes['host']));
+    $ruta = $partes['path'] ?? '';
+
+    // YouTube
+    if ($host === 'youtube.com' || $host === 'youtu.be') {
+        $id = null;
+        if ($host === 'youtu.be') {
+            $id = ltrim($ruta, '/');
+        } elseif (preg_match('#^/(embed|shorts|live)/([A-Za-z0-9_-]{11})#', $ruta, $m)) {
+            $id = $m[2];
+        } else {
+            parse_str($partes['query'] ?? '', $q);
+            $id = $q['v'] ?? null;
+        }
+        if (is_string($id) && preg_match('/^[A-Za-z0-9_-]{11}$/', $id) === 1) {
+            return ['tipo' => 'iframe', 'src' => 'https://www.youtube-nocookie.com/embed/' . $id];
+        }
+        return null;
+    }
+
+    // Vimeo
+    if ($host === 'vimeo.com' && preg_match('#^/(\d+)#', $ruta, $m)) {
+        return ['tipo' => 'iframe', 'src' => 'https://player.vimeo.com/video/' . $m[1]];
+    }
+
+    // Archivo de video directo
+    if (preg_match('/\.(mp4|webm|ogg)$/i', $ruta) === 1) {
+        return ['tipo' => 'video', 'src' => $url];
+    }
+
+    return null;
+}
+

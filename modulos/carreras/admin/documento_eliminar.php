@@ -38,7 +38,7 @@ if ($ficha['estado'] !== 'borrador') {
 
 $archivo = car_documento_eliminar((int)$doc['id']);
 if ($archivo !== null) {
-    @unlink(car_carpeta_docs() . '/' . $archivo);
+    car_borrar_archivo(car_carpeta_docs(), $archivo);
 }
 
 mensaje('exito', 'Documento eliminado.');

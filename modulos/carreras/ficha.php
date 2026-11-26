@@ -1,7 +1,8 @@
 <?php
 /**
  * CAR · Ficha pública de una carrera
- * Solo se muestra si la ficha está PUBLICADA.
+ * Muestra la VERSIÓN PUBLICADA. Si la ficha vuelve a borrador para modificarla,
+ * esta versión sigue visible hasta que se publique la nueva.
  */
 
 declare(strict_types=1);
@@ -14,17 +15,18 @@ if ($carreraId === null) {
     no_encontrado('Carrera no válida.');
 }
 
-// Si la ficha no existe o no está publicada, el público recibe 404:
+// Si la carrera nunca se publicó, el público recibe 404:
 // no se revela que existe un borrador.
-$ficha = car_ficha_publica($carreraId);
-if ($ficha === null) {
+$publicada = car_ficha_publica($carreraId);
+if ($publicada === null) {
     no_encontrado('Esta carrera no tiene ficha publicada.');
 }
 
-$materias       = car_materias_de_ficha((int)$ficha['id']);
-$instalaciones  = car_instalaciones_de_ficha((int)$ficha['id']);
-$documentos     = car_documentos_de_ficha((int)$ficha['id']);
-$galeria        = car_galeria_de_ficha((int)$ficha['id']);
+$ficha          = $publicada['ficha'];
+$materias       = $publicada['materias'];
+$instalaciones  = $publicada['instalaciones'];
+$documentos     = $publicada['documentos'];
+$galeria        = $publicada['galeria'];
 
 // Se agrupan las materias por cuatrimestre.
 $porCuatri = [];
@@ -32,21 +34,22 @@ foreach ($materias as $m) {
     $porCuatri[(int)$m['cuatrimestre']][] = $m;
 }
 
-// El video se enlaza solo si la dirección empieza con http:// o https://
+// El video se incrusta si es de YouTube, Vimeo o un archivo de video directo;
+// si es de otro sitio se deja un enlace (solo si empieza con http:// o https://).
 $video = (string)($ficha['video_url'] ?? '');
 $videoValido = $video !== '' && preg_match('#^https?://#i', $video) === 1;
+$videoEmbed = $videoValido ? car_video_embed($video) : null;
 
 cabecera($ficha['nombre'], $ficha['area'], 'css/modulo.css');
 
 $conFondo = !empty($ficha['imagen_fondo']);
 $estiloHero = $conFondo
-    ? " style=\"--portada-imagen:url('uploads/" . e($ficha['imagen_fondo']) . "')\""
+    ? " style=\"--portada-imagen:url('../uploads/" . e($ficha['imagen_fondo']) . "')\""
     : '';
 ?>
 
 <section class="portada car-hero<?= $conFondo ? ' portada--imagen car-hero--foto' : '' ?>"<?= $estiloHero ?>>
 <div class="contenedor">
-    <p class="car-hero__volver"><a href="./">&larr; Todas las carreras</a></p>
     <h1><?= e($ficha['nombre']) ?></h1>
     <ul class="car-hero__datos">
     <li><?= e(CAR_AREAS[$ficha['area']] ?? $ficha['area']) ?></li>
@@ -60,19 +63,39 @@ $estiloHero = $conFondo
 
 <?php pintar_mensajes(); ?>
 
-<div class="car-intro<?= $ficha['imagen_portada'] ? ' car-intro--con-imagen' : '' ?>">
+<div class="car-intro car-intro--con-imagen">
+    <div class="car-intro__lateral">
+        <a class="boton boton--primario car-intro__volver" href="./">&larr; Todas las carreras</a>
     <?php if ($ficha['imagen_portada']): ?>
-    <img class="car-intro__imagen" src="uploads/<?= e($ficha['imagen_portada']) ?>"
-        alt="Portada de <?= e($ficha['nombre']) ?>">
+        <img class="car-intro__imagen" src="uploads/<?= e($ficha['imagen_portada']) ?>"
+            alt="Portada de <?= e($ficha['nombre']) ?>">
     <?php endif; ?>
+    </div>
     <div class="car-intro__texto">
     <h2>Resumen</h2>
     <p><?= nl2br(e($ficha['resumen'])) ?></p>
-    <?php if ($videoValido): ?>
+    <?php if ($videoValido && $videoEmbed === null): ?>
         <p><a class="boton boton--primario" href="<?= e($video) ?>" target="_blank" rel="noopener">Ver video de la carrera</a></p>
     <?php endif; ?>
     </div>
 </div>
+
+<?php if ($videoEmbed !== null): ?>
+<div class="car-bloque car-bloque--centrado">
+    <h2>Video de la carrera</h2>
+    <div class="car-video">
+    <?php if ($videoEmbed['tipo'] === 'iframe'): ?>
+        <iframe src="<?= e($videoEmbed['src']) ?>" title="Video de <?= e($ficha['nombre']) ?>"
+                loading="lazy" allowfullscreen
+                allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"
+                referrerpolicy="strict-origin-when-cross-origin"></iframe>
+    <?php else: ?>
+        <video src="<?= e($videoEmbed['src']) ?>" controls preload="metadata"
+               title="Video de <?= e($ficha['nombre']) ?>"></video>
+    <?php endif; ?>
+    </div>
+</div>
+<?php endif; ?>
 
 <?php if ($galeria): ?>
 <div class="car-bloque">
@@ -107,47 +130,49 @@ $estiloHero = $conFondo
 </div>
 
 <div class="car-bloque">
-<h2>Plan de estudios</h2>
+<h2 class="car-titulo-centrado">Plan de estudios</h2>
 <?php if (!$porCuatri): ?>
     <p>Las materias se publicarán próximamente.</p>
 <?php else: ?>
-    <div class="rejilla">
-    <?php foreach ($porCuatri as $num => $lista): ?>
-        <div class="panel">
-        <h3><?= (int)$num ?>.º periodo</h3>
-        <ul>
-            <?php foreach ($lista as $m): ?>
-            <li>
-                <?= e($m['nombre']) ?>
-                <?php if ($m['horas_totales']): ?>
-                <span class="leyenda">· <?= (int)$m['horas_totales'] ?> h</span>
-                <?php endif; ?>
-            </li>
-            <?php endforeach; ?>
-        </ul>
+    <div class="car-plan" data-plan>
+        <button class="car-plan__flecha car-plan__flecha--prev" type="button" data-plan-prev
+                aria-label="Cuatrimestres anteriores">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+        </button>
+        <div class="car-plan__pista" data-plan-pista tabindex="0" aria-label="Materias por cuatrimestre">
+        <?php foreach ($porCuatri as $num => $lista): ?>
+            <article class="car-plan__tarjeta">
+            <h3 class="car-plan__titulo"><?= (int)$num ?>.º Cuatrimestre</h3>
+            <ul class="car-plan__lista">
+                <?php foreach ($lista as $m): ?>
+                <li>
+                    <span class="car-plan__check" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"/></svg>
+                    </span>
+                    <span><?= e($m['nombre']) ?>
+                    <?php if ($m['horas_totales']): ?>
+                        <span class="leyenda">· <?= (int)$m['horas_totales'] ?> h</span>
+                    <?php endif; ?></span>
+                </li>
+                <?php endforeach; ?>
+            </ul>
+            </article>
+        <?php endforeach; ?>
         </div>
-    <?php endforeach; ?>
+        <button class="car-plan__flecha car-plan__flecha--next" type="button" data-plan-next
+                aria-label="Cuatrimestres siguientes">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+        </button>
     </div>
+    <p class="car-plan__descarga">
+        <a class="boton boton--primario" href="plan_pdf.php?id=<?= (int)$carreraId ?>">Descargar plan de estudios detallado (PDF)</a>
+        <span class="leyenda">Incluye propósito, competencia y unidades de cada materia.</span>
+    </p>
 <?php endif; ?>
-
 </div>
 
-<?php if ($documentos): ?>
 <div class="car-bloque">
-    <h2>Descargas</h2>
-    <ul>
-    <?php foreach ($documentos as $d): ?>
-        <li>
-        <a href="descargar.php?id=<?= (int)$d['id'] ?>"><?= e($d['titulo']) ?></a>
-        <span class="leyenda">· PDF · <?= (int)$d['descargas'] ?> descargas</span>
-        </li>
-    <?php endforeach; ?>
-    </ul>
-</div>
-<?php endif; ?>
-
-<div class="car-bloque">
-<h2>Instalaciones</h2>
+<h2 class="car-titulo-centrado">Instalaciones</h2>
 <?php if (!$instalaciones): ?>
     <p>Aún no hay instalaciones registradas.</p>
 <?php else: ?>
@@ -171,5 +196,6 @@ $estiloHero = $conFondo
 </section>
 
 <script src="js/carrusel.js"></script>
+<script src="js/plan.js"></script>
 <?php
 pie();
