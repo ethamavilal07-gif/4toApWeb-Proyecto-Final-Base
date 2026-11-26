@@ -80,6 +80,9 @@ cabecera('Bandeja de revisión', '', '../css/modulo.css');
                 <span class="insignia insignia--archivado">Sin ficha</span>
               <?php else: ?>
                 <span class="<?= e(car_clase_estado($f['estado'])) ?>"><?= e(CAR_ESTADOS[$f['estado']]) ?></span>
+                <?php if ($f['publicada_en'] !== null && $f['estado'] !== 'publicado'): ?>
+                  <br><span class="leyenda">Versión publicada visible</span>
+                <?php endif; ?>
               <?php endif; ?>
             </td>
             <td>

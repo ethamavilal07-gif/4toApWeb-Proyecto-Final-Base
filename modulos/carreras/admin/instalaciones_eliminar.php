@@ -40,7 +40,7 @@ if ($ficha['estado'] !== 'borrador') {
 car_instalacion_eliminar((int)$inst['id']);
 
 if (!empty($inst['imagen_servidor'])) {
-    @unlink(CARPETA_SUBIDAS . '/' . $inst['imagen_servidor']);
+    car_borrar_archivo(CARPETA_SUBIDAS, $inst['imagen_servidor']);
 }
 
 mensaje('exito', 'Instalación eliminada.');

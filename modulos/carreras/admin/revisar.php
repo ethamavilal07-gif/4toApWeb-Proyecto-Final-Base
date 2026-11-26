@@ -104,6 +104,16 @@ cabecera('Revisar ficha', $ficha['area'], '../css/modulo.css');
 
 <?php pintar_mensajes(); ?>
 
+<?php $publicadaEn = car_publicada_en($fichaId); ?>
+<?php if ($publicadaEn !== null && $ficha['estado'] !== 'publicado'): ?>
+    <div class="alerta alerta--info" role="status">
+    <p><span class="alerta__titulo">El público sigue viendo la versión publicada</span>
+        del <?= e(date('d/m/Y H:i', strtotime($publicadaEn))) ?>.
+        Lo que ves aquí no es visible hasta que se publique.
+        <a href="../ficha.php?id=<?= (int)$ficha['carrera_id'] ?>">Ver la versión publicada</a></p>
+    </div>
+<?php endif; ?>
+
 <div class="panel mb-6">
     <h2>Lo que capturó el editor</h2>
     <p class="leyenda">Revisa cada apartado antes de dar tu dictamen.</p>
@@ -319,7 +329,7 @@ cabecera('Revisar ficha', $ficha['area'], '../css/modulo.css');
         <h2>Dictamen</h2>
 
         <form method="POST" action="cambiar_estado.php" class="mb-6"
-            data-confirmar="¿Publicar esta ficha? Será visible para todo el público."
+            data-confirmar="¿Publicar esta ficha? Reemplazará a la versión publicada anteriormente, si la hay."
             data-confirmar-boton="Publicar">
         <?= campo_token() ?>
         <input type="hidden" name="ficha" value="<?= (int)$ficha['id'] ?>">
@@ -344,13 +354,13 @@ cabecera('Revisar ficha', $ficha['area'], '../css/modulo.css');
     <div class="panel mb-6" id="dictamen">
         <h2>Retirar publicación</h2>
         <form method="POST" action="cambiar_estado.php"
-            data-confirmar="La ficha dejará de ser visible al público. ¿Continuar?"
-            data-confirmar-boton="Retirar publicación">
+            data-confirmar="La ficha vuelve a borrador para modificarla. El público seguirá viendo la versión publicada hasta que se publique la nueva. ¿Continuar?"
+            data-confirmar-boton="Devolver a borrador">
         <?= campo_token() ?>
         <input type="hidden" name="ficha" value="<?= (int)$ficha['id'] ?>">
         <input type="hidden" name="nuevo" value="borrador">
         <div class="campo">
-          <label class="campo__etiqueta" for="observaciones">Motivo *</label>
+          <label class="campo__etiqueta" for="observaciones">Qué debe cambiar *</label>
             <textarea class="campo__control" id="observaciones" name="observaciones" rows="2"
                     maxlength="1000" required></textarea>
         </div>

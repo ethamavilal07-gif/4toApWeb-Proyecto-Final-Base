@@ -57,6 +57,16 @@ cabecera('Panel · Carreras', $carrera['area'] ?? '', '../css/modulo.css');
     </div>
   <?php endif; ?>
 
+  <?php $publicadaEn = $ficha !== null ? car_publicada_en((int)$ficha['id']) : null; ?>
+  <?php if ($publicadaEn !== null && $ficha['estado'] !== 'publicado'): ?>
+    <div class="alerta alerta--info" role="status">
+      <p><span class="alerta__titulo">El público sigue viendo la versión publicada</span>
+        del <?= e(date('d/m/Y H:i', strtotime($publicadaEn))) ?>.
+        Tus cambios se verán cuando la coordinación publique esta versión.
+        <a href="../ficha.php?id=<?= (int)$carreraId ?>">Ver la versión publicada</a></p>
+    </div>
+  <?php endif; ?>
+
   <?php if ($ficha === null): ?>
 
     <div class="vacio">

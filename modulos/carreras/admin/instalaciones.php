@@ -66,7 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($accion === 'galeria_quitar') {
             if ($actual !== null) {
                 car_galeria_eliminar($fichaId, $lugar);
-                @unlink(CARPETA_SUBIDAS . '/' . $actual['imagen_servidor']);
+                car_borrar_archivo(CARPETA_SUBIDAS, $actual['imagen_servidor']);
                 mensaje('exito', 'Foto ' . $lugar . ' eliminada.');
             }
             redirigir($volver);
@@ -82,7 +82,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $nuevo = guardar_archivo($_FILES['imagen'], CARPETA_SUBIDAS, SOLO_IMAGEN, 3);
             car_galeria_guardar($fichaId, $lugar, $nuevo);
             if ($actual !== null) {
-                @unlink(CARPETA_SUBIDAS . '/' . $actual['imagen_servidor']);
+                car_borrar_archivo(CARPETA_SUBIDAS, $actual['imagen_servidor']);
             }
             mensaje('exito', 'Foto ' . $lugar . ' guardada.');
         } catch (RuntimeException $e) {
@@ -112,7 +112,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'imagen_servidor' => null,
                 'orden'           => $existente['orden'],
             ]);
-            @unlink(CARPETA_SUBIDAS . '/' . $existente['imagen_servidor']);
+            car_borrar_archivo(CARPETA_SUBIDAS, $existente['imagen_servidor']);
             mensaje('exito', 'Imagen eliminada.');
         }
         redirigir($volver . ($existente !== null ? '&editar=' . (int)$existente['id'] : ''));
@@ -166,7 +166,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             car_instalacion_actualizar($instId, $fila);
             if ($imagenNueva !== null && !empty($imagen)) {
-                @unlink(CARPETA_SUBIDAS . '/' . $imagen);   // se borra la anterior ya guardada la nueva
+                car_borrar_archivo(CARPETA_SUBIDAS, $imagen);   // se borra la anterior ya guardada la nueva
             }
             mensaje('exito', 'Instalación actualizada.');
         }

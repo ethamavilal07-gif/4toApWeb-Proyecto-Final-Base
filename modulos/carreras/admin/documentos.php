@@ -87,6 +87,16 @@ cabecera('Documentos', $ficha['area'], '../css/modulo.css');
 <?php pintar_mensajes(); ?>
 <?php car_menu_ficha($ficha, 'documentos'); ?>
 
+<div class="panel mb-6">
+    <h2>Plan de estudios en PDF (automático)</h2>
+    <p>El sistema arma un PDF con la información que capturaste en <a href="materias.php?ficha=<?= (int)$fichaId ?>">Materias</a>:
+        cuatrimestre, clave, horas, propósito, competencia y unidades de cada una.
+        En la ficha pública solo se muestran los nombres; este archivo es el detalle para quien lo descargue.</p>
+    <p>Al publicar, la ficha ofrece este PDF con las materias de la versión publicada, sin que tengas que subir nada.</p>
+    <a class="boton boton--primario" href="plan_pdf.php?ficha=<?= (int)$fichaId ?>">Generar y descargar PDF del plan de estudios</a>
+    <p class="leyenda">Lo que descargas aquí es el borrador actual.</p>
+</div>
+
 <?php if ($editable): ?>
 <form class="formulario panel mb-6" method="POST" action="" enctype="multipart/form-data">
     <?= campo_token() ?>
