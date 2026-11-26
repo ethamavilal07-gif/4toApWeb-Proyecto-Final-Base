@@ -1,8 +1,12 @@
 -- =============================================================================
--- MÓDULO CAR · Explorador de carreras · esquema.sql
+-- MÓDULO CAR · Explorador de carreras · esquema.sql  (UN SOLO ARCHIVO)
 -- Equipo A-1 · Prefijo de tablas: car_
--- Se ejecuta DESPUÉS de sql/01-nucleo.sql y de herramientas/crear-usuarios.php
--- Referencias externas: solo usuarios y carreras.
+--
+-- Crea TODAS las tablas del módulo. No incluye datos: las fichas, materias, fotos y
+-- demás contenido se capturan desde el panel.
+-- Para una base NUEVA: se ejecuta DESPUÉS de sql/01-nucleo.sql y de
+-- herramientas/crear-usuarios.php. Referencias externas: solo usuarios y carreras.
+-- Para volver a empezar: borra las tablas car_ (o la base) y vuelve a importar este archivo.
 -- =============================================================================
 
 USE explorador_vocacional;
@@ -199,93 +203,3 @@ CREATE TABLE IF NOT EXISTS car_revisiones (
         FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
         ON UPDATE CASCADE ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-
--- =============================================================================
--- DATOS DE PRUEBA
--- Se buscan carreras y usuarios por clave/correo, no por número de id.
--- =============================================================================
-
--- TIC: publicada (la visitará cualquiera)
-INSERT INTO car_fichas (carrera_id, resumen, perfil_egreso, campo_laboral, video_url, estado, actualizado_por)
-SELECT c.id,
-       'Forma profesionales que desarrollan, implementan y administran soluciones de software, redes e infraestructura para las organizaciones.',
-       'El egresado diseña aplicaciones web y móviles, administra bases de datos y redes, y gestiona proyectos de tecnología con enfoque en la innovación digital.',
-       'Desarrollo de software, administración de infraestructura, ciberseguridad, consultoría en TI, emprendimiento tecnológico y áreas de sistemas en cualquier empresa.',
-       NULL, 'publicado',
-       (SELECT id FROM usuarios WHERE correo = 'tic@utbb.mx')
-  FROM carreras c WHERE c.clave = 'TIC';
-
--- MED: en revisión (aparece en la bandeja de coordinación)
-INSERT INTO car_fichas (carrera_id, resumen, perfil_egreso, campo_laboral, estado, actualizado_por)
-SELECT c.id,
-       'Formación médica integral con práctica clínica desde los primeros ciclos.',
-       'El egresado diagnostica, trata y previene enfermedades con ética y sentido humano.',
-       'Hospitales, clínicas, salud pública, investigación y consultorio propio.',
-       'revision',
-       (SELECT id FROM usuarios WHERE correo = 'med@utbb.mx')
-  FROM carreras c WHERE c.clave = 'MED';
-
--- GAS: devuelta a borrador con observaciones
-INSERT INTO car_fichas (carrera_id, resumen, perfil_egreso, campo_laboral, estado, actualizado_por)
-SELECT c.id,
-        'Cocina profesional, administración de alimentos y bebidas e innovación culinaria.',
-        'Pendiente de completar.',
-        'Restaurantes, hoteles, banquetes y emprendimiento gastronómico.',
-        'borrador',
-        (SELECT id FROM usuarios WHERE correo = 'gas@utbb.mx')
-    FROM carreras c WHERE c.clave = 'GAS';
-
--- Materias de TIC
-INSERT INTO car_materias (ficha_id, cuatrimestre, clave_materia, nombre, horas_totales, proposito, orden)
-SELECT f.id, m.cuatri, m.clave, m.nombre, m.horas, m.descr, m.orden
-    FROM car_fichas f
-    JOIN carreras c ON c.id = f.carrera_id AND c.clave = 'TIC'
-    JOIN (
-        SELECT 1 AS cuatri, 'TIC-101' AS clave, 'Fundamentos de programación' AS nombre, 90 AS horas, 'Lógica y primeros programas.' AS descr, 1 AS orden
-        UNION ALL SELECT 1, 'TIC-102', 'Matemáticas para ingeniería', 75, NULL, 2
-        UNION ALL SELECT 2, 'TIC-201', 'Programación orientada a objetos', 90, NULL, 1
-        UNION ALL SELECT 2, 'TIC-202', 'Bases de datos', 90, 'Modelado relacional y SQL.', 2
-        UNION ALL SELECT 3, 'TIC-301', 'Estructuras de datos', 90, NULL, 1
-        UNION ALL SELECT 3, 'TIC-302', 'Redes de computadoras', 75, NULL, 2
-        UNION ALL SELECT 4, 'TIC-401', 'Aplicaciones web', 105, 'Desarrollo front end y back end.', 1
-        UNION ALL SELECT 4, 'TIC-402', 'Ingeniería de software', 75, NULL, 2
-        UNION ALL SELECT 5, 'TIC-501', 'Desarrollo móvil', 90, NULL, 1
-        UNION ALL SELECT 5, 'TIC-502', 'Seguridad informática', 75, NULL, 2
-        ) m;
-
--- Instalaciones de TIC
-INSERT INTO car_instalaciones (ficha_id, nombre, descripcion, orden)
-SELECT f.id, i.nombre, i.descr, i.orden
-  FROM car_fichas f
-  JOIN carreras c ON c.id = f.carrera_id AND c.clave = 'TIC'
-  JOIN (
-        SELECT 'Laboratorio de cómputo' AS nombre, 'Equipos de escritorio para prácticas de programación y bases de datos.' AS descr, 1 AS orden
-  UNION ALL SELECT 'Laboratorio de redes', 'Switches, routers y cableado estructurado para prácticas de conectividad.', 2
-  UNION ALL SELECT 'Sala de desarrollo', 'Espacio colaborativo para proyectos integradores.', 3
-  ) i;
-
--- Bitácora de revisiones
-INSERT INTO car_revisiones (ficha_id, usuario_id, estado_anterior, estado_nuevo, observaciones)
-SELECT f.id, (SELECT id FROM usuarios WHERE correo = 'tic@utbb.mx'), 'borrador', 'revision', 'Enviada a revisión.'
-  FROM car_fichas f JOIN carreras c ON c.id = f.carrera_id AND c.clave = 'TIC';
-
-INSERT INTO car_revisiones (ficha_id, usuario_id, estado_anterior, estado_nuevo, observaciones)
-SELECT f.id, (SELECT id FROM usuarios WHERE correo = 'coordinacion@utbb.mx'), 'revision', 'publicado', 'Contenido aprobado.'
-  FROM car_fichas f JOIN carreras c ON c.id = f.carrera_id AND c.clave = 'TIC';
-
-INSERT INTO car_revisiones (ficha_id, usuario_id, estado_anterior, estado_nuevo, observaciones)
-SELECT f.id, (SELECT id FROM usuarios WHERE correo = 'med@utbb.mx'), 'borrador', 'revision', 'Enviada a revisión.'
-  FROM car_fichas f JOIN carreras c ON c.id = f.carrera_id AND c.clave = 'MED';
-
-INSERT INTO car_revisiones (ficha_id, usuario_id, estado_anterior, estado_nuevo, observaciones)
-SELECT f.id, (SELECT id FROM usuarios WHERE correo = 'gas@utbb.mx'), 'borrador', 'revision', 'Enviada a revisión.'
-  FROM car_fichas f JOIN carreras c ON c.id = f.carrera_id AND c.clave = 'GAS';
-
-INSERT INTO car_revisiones (ficha_id, usuario_id, estado_anterior, estado_nuevo, observaciones)
-SELECT f.id, (SELECT id FROM usuarios WHERE correo = 'coordinacion@utbb.mx'), 'revision', 'borrador',
-       'Completa el perfil de egreso y agrega al menos dos instalaciones.'
-  FROM car_fichas f JOIN carreras c ON c.id = f.carrera_id AND c.clave = 'GAS';
-
--- No se siembran filas en car_documentos: el PDF se sube desde el panel
--- (así el archivo real y su registro siempre coinciden).
